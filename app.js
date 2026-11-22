@@ -24,9 +24,9 @@ try {
   sound.enabled = preferences.sound !== false;
   sound.setVolume(typeof preferences.volume === 'number' ? preferences.volume : .65);
 } catch {}
-let cw = 14.4, lh = 34, fontSize = 24;
+let cw = 14.4, lh = 34;
 let anchor = { x: innerWidth / 2, y: innerHeight * .58 };
-const driver = { column: machine.column, row: machine.row, review: 0 };
+const driver = { column: machine.column, row: machine.row, review: 0, reviewX: 0 };
 let returning = false;
 let tearing = false;
 let pending = [];
@@ -65,17 +65,16 @@ function updateSoundControls() {
   $('#volume').value = String(Math.round(sound.volume * 100));
 }
 function applyCarriage() {
-  gsap.set(carriage, {x: anchor.x - driver.column * cw - cw / 2, y: anchor.y - driver.row * lh - lh * .73 + driver.review});
+  gsap.set(carriage, {x: anchor.x - driver.column * cw - cw / 2 + driver.reviewX, y: anchor.y - driver.row * lh - lh * .73 + driver.review});
 }
 function measure() {
   const css = getComputedStyle(root);
   cw = parseFloat(css.getPropertyValue('--char'));
   lh = parseFloat(css.getPropertyValue('--line'));
-  fontSize = parseFloat(css.getPropertyValue('--type-size'));
   const view = window.visualViewport;
   const height = view ? view.height : innerHeight;
   const keyboardOpen = touch.matches && height < innerHeight * .78;
-  anchor = {x: touch.matches ? Math.max(innerWidth*.6,innerWidth-88) : innerWidth / 2, y: keyboardOpen ? height * .46 : height * (touch.matches ? .42 : .58)};
+  anchor = {x: touch.matches ? Math.max(innerWidth*.6,innerWidth-70) : innerWidth / 2, y: keyboardOpen ? height * .46 : height * (touch.matches ? .42 : .58)};
   root.style.setProperty('--guide-x', `${anchor.x}px`);
   root.style.setProperty('--guide-y', `${anchor.y}px`);
   input.style.top = `${Math.min(anchor.y, height - 50)}px`;
@@ -120,7 +119,7 @@ function renderDocument() {
   impressions.replaceChildren();
   machine.current.lines.forEach((line, row) => Array.from(line).forEach((char, column) => impression(char, row, column)));
   gsap.killTweensOf(driver);
-  Object.assign(driver, {column: machine.column, row: machine.row, review: 0});
+  Object.assign(driver, {column: machine.column, row: machine.row, review: 0, reviewX: 0});
   applyCarriage();
   readable.textContent = machine.text;
   $('#margin-hint').style.opacity = machine.full ? '1' : '0';
@@ -154,7 +153,7 @@ function writeCharacter(char) {
   }
   if (char === ' ') sound.space();
   else { sound.strike(result.column); strikeMotion(); impression(char, result.row, result.column); }
-  gsap.to(driver, {column: machine.column, row: machine.row, review: 0, duration: reduceMotion.matches ? 0 : .058, ease: 'power2.out', overwrite: true, onUpdate: applyCarriage});
+  gsap.to(driver, {column: machine.column, row: machine.row, review: 0, reviewX: 0, duration: reduceMotion.matches ? 0 : .058, ease: 'power2.out', overwrite: true, onUpdate: applyCarriage});
   if (result.bell) sound.bell();
   if (machine.full) showMargin();
   persist(); updateReadable();
@@ -172,7 +171,7 @@ function returnCarriage() {
     const buffered = pending; pending = [];
     for (const char of buffered) char === '\n' ? returnCarriage() : writeCharacter(char);
   };
-  gsap.to(driver, {column: 0, row: machine.row, review: 0, duration: reduceMotion.matches ? 0 : duration, ease: 'power2.inOut', overwrite: true, onUpdate: applyCarriage, onComplete: () => {
+  gsap.to(driver, {column: 0, row: machine.row, review: 0, reviewX: 0, duration: reduceMotion.matches ? 0 : duration, ease: 'power2.inOut', overwrite: true, onUpdate: applyCarriage, onComplete: () => {
     finish();
   }});
   persist(); updateReadable();
@@ -208,8 +207,32 @@ menu.addEventListener('click', event => { if (event.target !== menu) return; con
 menuToggle.addEventListener('click', () => {sound.unlock();menu.open ? closeMenu() : openMenu();});
 $('#desk').addEventListener('pointerdown', event => {
   if (event.target.closest('button,dialog,a,input,select') || pagePrompt.open) return;
-  sound.unlock(); focusPaper();
+  sound.unlock();
+  if(event.pointerType==='touch') {
+    touchReview={id:event.pointerId,x:event.clientX,y:event.clientY,startX:driver.reviewX,startY:driver.review,dragged:false};
+    $('#desk').setPointerCapture(event.pointerId);
+  } else focusPaper();
 });
+let touchReview=null;
+$('#desk').addEventListener('pointermove',event=>{
+  if(!touchReview || touchReview.id!==event.pointerId || menu.open || pagePrompt.open || tearing)return;
+  const dx=event.clientX-touchReview.x,dy=event.clientY-touchReview.y;
+  if(Math.abs(dx)+Math.abs(dy)>10)touchReview.dragged=true;
+  if(!touchReview.dragged)return;
+  const minX=-Math.max(0,(COLUMNS-machine.column)*cw-(innerWidth-anchor.x)+24);
+  const maxX=Math.max(0,machine.column*cw-anchor.x+24);
+  gsap.killTweensOf(driver);
+  driver.reviewX=Math.max(minX,Math.min(maxX,touchReview.startX+dx));
+  driver.review=Math.max(0,Math.min(machine.row*lh,touchReview.startY+dy));
+  applyCarriage();
+});
+function endReview(event){
+  if(!touchReview || event.pointerId!==touchReview.id)return;
+  if(!touchReview.dragged)focusPaper();
+  touchReview=null;
+}
+$('#desk').addEventListener('pointerup',endReview);
+$('#desk').addEventListener('pointercancel',()=>{touchReview=null;});
 const lighting = {x:.46,y:.32,metalX:.46,metalY:.32,shine:.25};
 function applyLighting() {
   gsap.set('.paper-light', {x:(lighting.x-.46)*innerWidth*.14,y:(lighting.y-.32)*innerHeight*.1});
@@ -370,8 +393,9 @@ window.visualViewport?.addEventListener('resize',measure);
 window.visualViewport?.addEventListener('scroll',measure);
 window.addEventListener('pagehide',()=>persist(true));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)persist(true);});
-reduceMotion.addEventListener('change',()=>{gsap.killTweensOf(lighting);gsap.killTweensOf(driver);Object.assign(driver,{column:machine.column,row:machine.row,review:0});applyCarriage();});
+reduceMotion.addEventListener('change',()=>{gsap.killTweensOf(lighting);gsap.killTweensOf(driver);Object.assign(driver,{column:machine.column,row:machine.row,review:0,reviewX:0});applyCarriage();});
 if(!navigator.platform.toLowerCase().includes('mac'))$('#save-shortcut').textContent='Ctrl S';
+if(touch.matches)$('#review-help').textContent='Swipe the paper to read';
 updateSoundControls();measure();renderDocument();persist(true);
 // Decoding before the first gesture removes first-strike latency; no audio plays before input.
 if (window.AudioContext || window.webkitAudioContext) {

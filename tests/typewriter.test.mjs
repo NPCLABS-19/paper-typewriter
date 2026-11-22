@@ -63,6 +63,16 @@ await mp.waitForTimeout(200);const mt=await mp.evaluate(k=>JSON.parse(localStora
 assert.equal(await mp.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
 await mp.locator('#key-input').evaluate(el=>el.dispatchEvent(new InputEvent('beforeinput',{inputType:'deleteContentBackward',bubbles:true,cancelable:true})));assert(await mp.locator('#new-page-prompt').evaluate(e=>e.open));await mp.locator('#keep-typing').tap();
 await mp.screenshot({path:'.shots/mobile-typed.png'});await mp.locator('#menu-toggle').tap();await mp.screenshot({path:'.shots/mobile-menu.png'});assert(await mp.locator('#controls').isVisible());
-console.log('PASS mobile: touch focus, beforeinput, no replacement, IME commit, no overflow, menu');
+await mp.keyboard.press('Escape');await mp.keyboard.type('a'.repeat(63));await mp.waitForTimeout(250);
+const cdp=await mobile.newCDPSession(mp);
+for(let i=0;i<3;i++){
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:45,y:260}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:345,y:260}]});
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+}
+await mp.waitForTimeout(100);assert(await mp.locator('.impression').first().evaluate(el=>el.getBoundingClientRect().x>=15),'swipe reveals start of line');
+await mp.keyboard.press('Enter');await mp.keyboard.type('new');await mp.waitForTimeout(700);
+assert(await mp.locator('.impression').last().evaluate(el=>el.getBoundingClientRect().right<innerWidth),'typing returns to writing point');
+console.log('PASS mobile: touch focus, beforeinput, no replacement, IME commit, no overflow, menu, swipe review, return to writing');
 assert.deepEqual(errors,[]);console.log('PASS no JavaScript errors');
 await browser.close();
