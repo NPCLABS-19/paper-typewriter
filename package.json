@@ -1,0 +1,17 @@
+{
+  "name": "paper-typewriter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "python3 -m http.server 4400 --bind 127.0.0.1",
+    "test": "node tests/typewriter.test.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "^4.14.1",
+    "playwright": "^1.65.1"
+  },
+  "dependencies": {
+    "gsap": "^3.15.1"
+  }
+}
