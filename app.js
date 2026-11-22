@@ -1,5 +1,5 @@
 import { Typewriter, COLUMNS, STORAGE_KEY } from './engine.js?v=desk';
-import { MechanicalSound } from './sound.js?v=mechanics';
+import { MechanicalSound } from './sound.js?v=mechanics-2';
 import { MACHINES } from './profiles.js';
 
 const $ = s => document.querySelector(s);
@@ -642,7 +642,7 @@ models.addEventListener('change',event=>{
   persistPreferences();
 });
 applyProfile();
-import('./assets/machine.mjs?v=1').then(({MechanicalRig})=>{
+import('./assets/machine.mjs?v=2').then(({MechanicalRig})=>{
   const canvas=$('#machine-view');
   const next=new MechanicalRig(canvas);
   next.select(profileId);
@@ -661,6 +661,6 @@ import('./assets/machine.mjs?v=1').then(({MechanicalRig})=>{
 // Decoding before the first gesture removes first-strike latency; no audio plays before input.
 if (window.AudioContext || window.webkitAudioContext) {
   // The suspended context decodes samples; only a real gesture resumes playback.
-  sound.prime();
+  sound.warmAlternates();
 }
 // Global key handling lets typing start immediately while the first Tab reaches the skip link.

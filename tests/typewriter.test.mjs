@@ -51,7 +51,7 @@ await persist();assert.equal(await text(),'A page, a thought.!');
 async function instrumentMotion() {
   await page.waitForSelector('html.has-rig',{state:'attached'});
   await page.evaluate(async()=>{
-  const {rigFor}=await import('./assets/machine.mjs?v=1');
+  const {rigFor}=await import('./assets/machine.mjs?v=2');
   const rig=rigFor(document.querySelector('#machine-view'));
   window.mechanism=rig;
   const draw=rig.draw.bind(rig);
@@ -98,7 +98,7 @@ await page.waitForFunction(()=>window.__audio.some(sample=>sample.duration>.16&&
 await page.locator('[value=lettera]').check();
 assert.equal(await page.locator('#machine-view').getAttribute('data-machine'),'lettera');
 await page.evaluate(()=>{window.__audio=[];});
-await page.keyboard.type('a',{delay:100});
+await page.keyboard.type('aaa',{delay:220});
 await page.waitForFunction(()=>window.__audio.some(sample=>sample.duration>.18&&sample.duration<.19));
 await page.locator('[value=selectric]').check();
 assert.equal(await page.locator('#machine-view').getAttribute('data-machine'),'selectric');

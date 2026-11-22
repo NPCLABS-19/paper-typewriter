@@ -60,6 +60,9 @@ export class MechanicalSound {
     this.motor();
     this.prime().then(() => this.motor());
   }
+  warmAlternates() {
+    return this.prime().then(()=>Promise.all(['olympia','lettera','selectric'].filter(id=>id!==this.machine).map(id=>this.prime(id))));
+  }
   motor() {
     const running = this.machine === 'selectric' && this.enabled && !document.hidden && this.context?.state === 'running';
     if (this.motorSource && !running) {
@@ -83,7 +86,10 @@ export class MechanicalSound {
     if (!this.enabled) return;
     if (!this.context || this.context.state !== 'running' || !this.buffers.has(name)) {
       const requested = performance.now();
-      this.unlock().then(() => {if(performance.now()-requested<180 && this.context?.state==='running' && this.buffers.has(name)) this.play(name,{gain,rate,delay,pan});});
+      const machine = this.machine;
+      this.unlock().then(() => {
+        if(this.machine===machine && performance.now()-requested<450 && this.context?.state==='running' && this.buffers.has(name)) this.play(name,{gain,rate,delay,pan});
+      });
       return;
     }
     const source = this.context.createBufferSource();

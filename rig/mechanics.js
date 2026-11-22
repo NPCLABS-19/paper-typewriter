@@ -170,10 +170,10 @@ export function basket(parent) {
     const tip = STRIKE.clone().add(v(0,0,.038));
     const arm = tip.clone().sub(base);
     const length = arm.length();
-    const reach = Math.min(length * .86, 1.46 - base.z);
-    const drop = Math.min(length * .62, .36 + .48 * (1-edge));
-    const lateral = Math.sqrt(Math.max(0,length**2 - reach**2 - drop**2));
-    const rest = v(-Math.sign(fan)*lateral,-drop,reach).normalize();
+    const lateral = -fan * 2.29;
+    const drop = .46 + .31 * (1-edge);
+    const reach = Math.sqrt(Math.max(0,length**2 - lateral**2 - drop**2));
+    const rest = v(lateral,-drop,reach).normalize();
     const sweep = new Quaternion().setFromUnitVectors(UP, rest);
     const impact = new Quaternion().setFromUnitVectors(UP, arm.normalize());
     const pivot = GROUP(segment,base.x,base.y,base.z);

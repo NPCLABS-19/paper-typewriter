@@ -82,7 +82,7 @@ export class MechanicalRig {
     const tape=ribbon(element?.carrier || root,electric);
     tape.update(0);
     if(!electric) {
-      box(root,mats.darkSteel,0,1.33,.66,6.9,.104,1.14,.042);
+      box(root,mats.darkSteel,0,.65,.65,6.9,.104,1.14,.042);
       box(root,mats.brass,0,1.58,-.02,.62,.25,.11,.035);
       box(root,mats.chrome,0,1.70,-.02,.34,.12,.12,.025);
     }
