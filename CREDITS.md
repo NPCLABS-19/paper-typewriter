@@ -14,7 +14,13 @@ TT2020 Base Regular by Fredrick R. Brennan. https://github.com/ctrlcctrlv/TT2020
 GSAP, locally bundled from the published npm package. Standard GSAP license: https://gsap.com/community/standard-license/ . Package license in `assets/vendor/GSAP-LICENSE.txt`.
 
 ## Interface
-The steel guide is an original inline SVG. The paper texture is procedural SVG noise. No external services receive typed text; there are no analytics, advertisements, or network requests carrying document content.
+The live sheet uses procedural paper grain and animated letter impressions. No external services receive typed text; there are no analytics, advertisements, or network requests carrying document content.
+
+The desk and typewriter were created with the built-in ImageGen tool and saved as `assets/typewriter-desk.webp`.
+
+Generation prompt
+
+> Photoreal product photograph to serve as a full-screen backdrop for a web typewriter app. Landscape 3:2. Extremely symmetrical straight-on centered close-up of a real Oxblood Ferrari-red 1960s portable manual typewriter, a handsome unbranded Italian enamel machine with tiny nicks and genuine use wear, black round-square keys and real chrome platen and knobs. Entire typewriter sits on a real dark brown walnut table with low, warm raking light showing subtle horizontal wood grain. Seamless jet black studio background behind the table, lit dramatically from upper left. CAMERA: in front, looking down about 18 degrees, compressed product lens, visible keys and typebar basket. COMPOSITION MUST BE PRECISE: the black rubber platen perfectly horizontal near Y=62% of the image height, machine centered on X=50%, machine width including knobs 69% of entire canvas. Machine body and key bank fills lower 37% with front edge at Y=98%, can be cropped slightly at bottom. Width enough for real margins either side. The back/top 61% of the photo is empty near-black backdrop, this is where a real animated cream paper sheet will be composited by CSS down behind the platen. Absolutely no paper, props, people, writing, interface, logos, arrows, floating keys, signage or watermarks. Natural filmic black shadows and subtle red lacquer reflections, richly graded red and warm black, photographic sharpness. Grounded believable vintage machine, not a render.
 
 ## Design research
 https://uniqcode.com/typewriter/ : carriage mechanics, margin warning, fixed strike point.

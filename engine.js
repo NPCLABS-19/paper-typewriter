@@ -4,7 +4,7 @@ export const TAB_SIZE = 5;
 export const MAX_PAGES = 10;
 export const STORAGE_KEY = 'paper.typewriter.v1';
 
-/** Append-only model. There is deliberately no erase or cursor operation. */
+/** Text is entered and erased at the current end of the sheet. */
 export class Typewriter {
   constructor(saved) {
     this.documents = [];
@@ -30,6 +30,18 @@ export class Typewriter {
     char = Array.from(char)[0];
     this.current.lines[this.row] += char;
     return { accepted: true, char, row: this.row, column: this.column - 1, bell: this.column === WARNING_COLUMN };
+  }
+  eraseLast() {
+    const line = this.current.lines[this.row];
+    if (line.length) {
+      const characters = Array.from(line);
+      const char = characters.pop();
+      this.current.lines[this.row] = characters.join('');
+      return { char, row: this.row, column: characters.length };
+    }
+    if (this.row === 0) return null;
+    this.current.lines.pop();
+    return { char: '\n' };
   }
   returnCarriage() {
     const distance = this.column;
