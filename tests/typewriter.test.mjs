@@ -37,15 +37,34 @@ const url=process.env.TEST_URL||'http://127.0.0.1:4400/';
 await page.goto(url);await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
 const text=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).documents.find(d=>d.id===JSON.parse(localStorage.getItem(key)).activeId).lines.join('\n'),STORAGE_KEY);
 const persist=()=>page.waitForTimeout(180);
-await page.keyboard.type('A page, a thought.');await persist();assert.equal(await text(),'A page, a thought.');
+await page.keyboard.type('A page, a thought.');
+await page.waitForFunction(key=>JSON.parse(localStorage.getItem(key)).documents[0].lines[0]==='A page, a thought.',STORAGE_KEY);
 await page.keyboard.press('Backspace');await persist();assert.equal(await text(),'A page, a thought');
 await page.keyboard.press('Delete');await persist();assert.equal(await text(),'A page, a though');
 await page.keyboard.press('ControlOrMeta+z');await page.keyboard.press('ControlOrMeta+a');await page.keyboard.press('ControlOrMeta+Backspace');await page.keyboard.press('ArrowLeft');await page.keyboard.type('t.!');await persist();assert.equal(await text(),'A page, a thought.!');
 for (const [type,data] of [['historyUndo',null],['insertReplacementText','AUTOCORRECT'],['insertFromPaste','PASTE']]) await page.locator('#key-input').evaluate((el,{type,data})=>el.dispatchEvent(new InputEvent('beforeinput',{inputType:type,data,bubbles:true,cancelable:true})),{type,data});
 await persist();assert.equal(await text(),'A page, a thought.!');
-const point = () => page.locator('#writing-point').evaluate(el => el.getBoundingClientRect().x);
-const before=await point();await page.keyboard.type(' x');assert(await point() > before);
-await page.keyboard.press('Enter');await page.keyboard.type('Buffered through return.x');await page.keyboard.press('Backspace');await page.waitForTimeout(600);assert.equal(await text(),'A page, a thought.! x\nBuffered through return.');
+const box = selector => page.locator(selector).boundingBox();
+const headBefore = await box('#guide');
+const strikeFrames = page.locator('#typebar').evaluate(el => new Promise(resolve => {
+  const baseline = el.getBoundingClientRect().top;
+  let highest = baseline;
+  const stop = performance.now() + 320;
+  function sample(now) {
+    highest = Math.min(highest, el.getBoundingClientRect().top);
+    if (now < stop) requestAnimationFrame(sample);
+    else resolve(baseline - highest);
+  }
+  requestAnimationFrame(sample);
+}));
+await page.keyboard.type(' x');
+assert(await strikeFrames > 9, 'the typebar visibly lifts on the strike');
+const headAfter = await box('#guide');
+assert(headAfter.x > headBefore.x + 15, 'the head advances past two characters');
+const paperBeforeReturn = await box('#paper-stock');
+await page.keyboard.press('Enter');
+await page.waitForFunction(({x,y}) => document.querySelector('#guide').getBoundingClientRect().x < x - 30 && document.querySelector('#paper-stock').getBoundingClientRect().y < y - 15, {x: headAfter.x, y: paperBeforeReturn.y});
+await page.keyboard.type('Buffered through return.x');await page.keyboard.press('Backspace');await page.waitForTimeout(600);assert.equal(await text(),'A page, a thought.! x\nBuffered through return.');
 await page.reload();await page.waitForTimeout(250);assert.equal(await text(),'A page, a thought.! x\nBuffered through return.');assert.equal(await page.locator('#impressions .impression').count(),Array.from((await text()).replace(/\s/g,'')).length);
 await page.keyboard.press('Escape');await page.locator('#new-sheet').click();await page.locator('#keep-typing').click();assert.equal(await text(),'A page, a thought.! x\nBuffered through return.');
 await page.keyboard.press('Escape');await page.locator('#new-sheet').click();await page.locator('#tear-page').click();assert(await page.locator('.torn-page').count());await page.waitForTimeout(950);assert.equal(await page.locator('.torn-page').count(),0);
@@ -63,7 +82,7 @@ await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.a
 await page.addScriptTag({path:'node_modules/axe-core/axe.min.js'});let axe=await page.evaluate(()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));assert.deepEqual(axe.violations.map(v=>v.id),[]);
 await page.keyboard.press('Escape');axe=await page.evaluate(()=>axe.run(document,{runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21aa']}}));assert.deepEqual(axe.violations.map(v=>v.id),[]);await page.keyboard.press('Escape');
 await page.emulateMedia({reducedMotion:'reduce'});await page.keyboard.type(' reduced');await persist();const transform=await page.locator('#carriage').evaluate(e=>getComputedStyle(e).transform);await page.waitForTimeout(120);assert.equal(await page.locator('#carriage').evaluate(e=>getComputedStyle(e).transform),transform);
-console.log('PASS desktop: Backspace and Delete, blocked replacement and undo, movement, buffered returns, persistence, bell, lock, text/PNG exports, mute, archive, keyboard navigation, axe, reduced motion');
+console.log('PASS desktop: Backspace and Delete, blocked replacement and undo, vertical strike, lateral advance, paper feed, buffered returns, persistence, bell, lock, text/PNG exports, mute, archive, keyboard navigation, axe, reduced motion');
 
 const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});const mp=await mobile.newPage();await mp.goto(url);await mp.tap('#desk');
 for(const char of ['t','e','h',' '])await mp.locator('#key-input').evaluate((el,char)=>el.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:char,bubbles:true,cancelable:true})),char);

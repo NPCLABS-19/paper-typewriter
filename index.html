@@ -18,10 +18,10 @@
   <meta name="twitter:image" content="https://npclabs-19.github.io/paper-typewriter/assets/og.png">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="preload" href="./assets/fonts/TT2020.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="./style.css?v=desk">
+  <link rel="stylesheet" href="./style.css?v=motion">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Paper","url":"https://npclabs-19.github.io/paper-typewriter/","applicationCategory":"ProductivityApplication","operatingSystem":"Any","description":"A minimal online typewriter with mechanical sound, ribbon ink, and local saving.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <script defer src="./assets/vendor/gsap.min.js"></script>
-  <script type="module" src="./app.js?v=desk"></script>
+  <script type="module" src="./app.js?v=motion"></script>
 </head>
 <body>
   <a class="skip-link" href="#key-input">Skip to paper</a>
@@ -34,7 +34,13 @@
       <div class="paper-feed-shadow"></div>
     </div>
     <div class="typewriter-scene typewriter-front" aria-hidden="true"></div>
-    <div id="guide" aria-hidden="true"><i id="typebar"></i></div>
+    <div id="head-rail" aria-hidden="true"></div>
+    <div id="guide" aria-hidden="true">
+      <span class="guide-jaw guide-jaw-left"></span>
+      <span class="guide-jaw guide-jaw-right"></span>
+      <span id="typebar"><span id="type-slug"></span></span>
+      <span class="guide-shoe"></span>
+    </div>
     <label class="sr-only" for="key-input">Type on the paper. Enter returns the carriage. Backspace erases the last character. Escape opens the menu.</label>
     <textarea tabindex="-1" id="key-input" aria-label="Type on the paper" aria-describedby="typing-help" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" rows="1"></textarea>
     <p id="typing-help" class="sr-only">Press Backspace or Delete to erase the previous character. Press Enter for a line break. Press Escape for saved pages, exports, and sound controls.</p>

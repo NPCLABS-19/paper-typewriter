@@ -1,6 +1,6 @@
 # Paper
 
-A red manual typewriter on a walnut desk, with a readable centered sheet, dark ribbon ink, and recorded keys, bell, and carriage return.
+A red manual typewriter on a walnut desk, with a readable centered sheet, dark ribbon ink, and recorded keys, bell, and carriage return. The metal head strikes each letter and moves across the sheet. Enter sweeps the head back and feeds the paper one line.
 
 ## Use
 Just type. Enter returns the carriage. Backspace and Delete both erase the last character. From an empty line they go back to the previous line. Use Fresh sheet in the menu to tear away the current sheet and start another. Automatic correction, capitalization, and spellcheck are disabled. On a phone, tap the paper to open the keyboard.

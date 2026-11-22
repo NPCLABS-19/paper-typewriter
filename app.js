@@ -14,6 +14,10 @@ const carriage = $('#carriage');
 const paper = $('#paper');
 const paperStock = $('#paper-stock');
 const writingPoint = $('#writing-point');
+const guide = $('#guide');
+const typebar = $('#typebar');
+const slug = $('#type-slug');
+const headRail = $('#head-rail');
 const menu = $('#controls');
 const pagePrompt = $('#new-page-prompt');
 const menuToggle = $('#menu-toggle');
@@ -34,12 +38,15 @@ try {
 } catch {}
 let cw = 12, lh = 29;
 let paperHeight = 0;
+let paperLeft = 0;
+let writingInset = 32;
 let inset = 32;
 let displayColumns = COLUMNS;
 let rowStarts = [0];
 let rowWraps = [[0]];
 let anchor = { x: innerWidth / 2, y: innerHeight * .58 };
-const driver = { feed: 0, review: 0 };
+const driver = { feed: 0, review: 0, headX: 0 };
+let strikeTween;
 let returning = false;
 let tearing = false;
 let pending = [];
@@ -80,6 +87,12 @@ function updateSoundControls() {
 function applyCarriage() {
   const offset = driver.review - driver.feed;
   gsap.set([carriage, paperStock], {y: offset});
+  gsap.set(guide, {x: driver.headX});
+  const reviewing = driver.review > 1;
+  if (guide.hidden !== reviewing) {
+    guide.hidden = reviewing;
+    headRail.hidden = reviewing;
+  }
 }
 function displayPosition(row, column) {
   const offsets = rowWraps[row];
@@ -117,14 +130,17 @@ function layoutActiveLine() {
     positionImpression(node, machine.row, Number(node.dataset.column));
   }
 }
+function headPosition(column) {
+  return paperLeft + inset + (column + .5) * cw;
+}
 function updateWritingPoint() {
   const position = machine.full ? machine.column - 1 : machine.column;
   const [column, row] = displayPosition(machine.row, position);
   writingPoint.style.left = `${(column + (machine.full ? 1 : 0)) * cw + 1}px`;
   writingPoint.style.top = `${row * lh + lh * .73}px`;
-  const sheetHeight = Math.max(paperHeight, row * lh + inset * 2 + lh * 2);
-  paperStock.style.height = `${sheetHeight}px`;
-  return sheetHeight - paperHeight;
+  const feed = row * lh;
+  paperStock.style.height = `${paperHeight + Math.max(feed, driver.feed)}px`;
+  return {feed, headX: headPosition(column + (machine.full ? 1 : 0))};
 }
 function positionImpression(node, row, column) {
   const [x, y] = displayPosition(row, column);
@@ -138,7 +154,8 @@ function measure() {
   const view = window.visualViewport;
   const height = view ? view.height : innerHeight;
   const offsetTop = view?.offsetTop || 0;
-  anchor = {x: innerWidth / 2, y: offsetTop + height * (innerWidth <= 740 ? .75 : .545)};
+  const narrow = innerWidth <= 740;
+  anchor = {x: innerWidth / 2, y: offsetTop + height * (narrow ? .72 : .575)};
   root.style.setProperty('--stage-height', `${height}px`);
   root.style.setProperty('--stage-offset', `${offsetTop}px`);
   root.style.setProperty('--guide-x', `${anchor.x}px`);
@@ -146,12 +163,17 @@ function measure() {
   input.style.top = `${anchor.y - 30}px`;
   inset = parseFloat(getComputedStyle(paper).paddingLeft);
   paperHeight = paper.clientHeight;
+  const bounds = paper.getBoundingClientRect();
+  paperLeft = bounds.left;
+  writingInset = Math.max(8, paperHeight - lh * .73 - (narrow ? 43 : 59));
+  root.style.setProperty('--writing-inset', `${writingInset}px`);
+  root.style.setProperty('--strike-y', `${bounds.top + writingInset + lh * .73}px`);
   displayColumns = Math.max(1, Math.min(COLUMNS, Math.floor((paper.clientWidth - 2 * inset) / cw)));
   layoutRows();
   for (const node of impressions.children) {
     positionImpression(node, Number(node.dataset.row), Number(node.dataset.column));
   }
-  driver.feed = updateWritingPoint();
+  Object.assign(driver, updateWritingPoint());
   driver.review = Math.min(driver.review, driver.feed);
   applyCarriage();
 }
@@ -175,6 +197,7 @@ function impression(char, row, column) {
   node.style.translate = `0 ${variation.y}px`;
   node.style.rotate = `${variation.angle}deg`;
   impressions.append(node);
+  return node;
 }
 function updateReadable() {
   // Update text at line boundaries and after a short pause without announcing every letter.
@@ -193,20 +216,27 @@ function renderDocument() {
   layoutRows();
   machine.current.lines.forEach((line, row) => Array.from(line).forEach((char, column) => impression(char, row, column)));
   gsap.killTweensOf(driver);
-  Object.assign(driver, {feed: updateWritingPoint(), review: 0});
+  driver.feed = 0;
+  slug.textContent = '';
+  Object.assign(driver, {review: 0, ...updateWritingPoint()});
   applyCarriage();
   readable.textContent = machine.text;
   $('#margin-hint').style.opacity = machine.full ? '1' : '0';
   $('#margin-hint').textContent = machine.full ? 'Enter to return' : '';
   refreshSheets();
 }
-function strikeMotion() {
+function strikeMotion(char, row, column, node) {
   if (reduceMotion.matches) return;
-  gsap.killTweensOf('#typebar');
-  gsap.set('#typebar', {opacity: 0, y: 16, scaleY: .65});
-  gsap.timeline()
-    .to('#typebar', {y: -9, opacity: 1, scaleY: 1, duration: .029, ease: 'power2.in'})
-    .to('#typebar', {y: 15, opacity: 0, scaleY: .7, duration: .06, ease: 'power2.out'});
+  const [strikeColumn] = displayPosition(row, column);
+  gsap.killTweensOf(driver);
+  driver.headX = headPosition(strikeColumn);
+  applyCarriage();
+  slug.textContent = char;
+  strikeTween?.kill();
+  strikeTween = gsap.timeline()
+    .to(typebar, {yPercent: -95, rotateX: 0, duration: .037, ease: 'power2.in'})
+    .to(typebar, {yPercent: 0, rotateX: 14, duration: .096, ease: 'power3.out'}, '+=.012');
+  node.classList.add('fresh-impression');
 }
 function showMargin() {
   $('#margin-hint').textContent = 'Enter to return';
@@ -229,7 +259,7 @@ function eraseCharacter() {
   }
   if (erased.char === '\n') layoutRows();
   else layoutActiveLine();
-  movePaper(.09);
+  movePaper(.12);
   persist();
   updateReadable();
 }
@@ -243,8 +273,12 @@ function writeCharacter(char) {
   }
   layoutActiveLine();
   if (char === ' ') sound.space();
-  else { sound.strike(result.column); strikeMotion(); impression(char, result.row, result.column); }
-  movePaper(.058);
+  else {
+    sound.strike(result.column);
+    const node = impression(char, result.row, result.column);
+    strikeMotion(char, result.row, result.column, node);
+  }
+  movePaper(.11, undefined, char === ' ' ? 0 : .058);
   if (result.bell) sound.bell();
   if (machine.full) showMargin();
   persist(); updateReadable();
@@ -253,7 +287,7 @@ function returnCarriage() {
   if (tearing) return;
   if (returning) { pending.push('\n'); return; }
   const distance = machine.returnCarriage();
-  const duration = .16 + (distance / COLUMNS) * .3;
+  const duration = .23 + (distance / COLUMNS) * .26;
   sound.carriage(duration, distance);
   returning = true;
   gsap.to('#margin-hint', {opacity: 0, duration: .12});
@@ -261,8 +295,13 @@ function returnCarriage() {
   movePaper(duration, finishReturn);
   persist(); updateReadable();
 }
-function movePaper(duration, onComplete) {
-  gsap.to(driver, {feed: updateWritingPoint(), review: 0, duration: reduceMotion.matches ? 0 : duration, ease: 'power2.out', overwrite: true, onUpdate: applyCarriage, onComplete});
+function movePaper(duration, onComplete, delay = 0) {
+  const target = updateWritingPoint();
+  const instant = reduceMotion.matches;
+  gsap.to(driver, {
+    ...target, review: 0, duration: instant ? 0 : duration, delay: instant ? 0 : delay,
+    ease: returning ? 'power3.inOut' : 'power2.out', overwrite: true, onUpdate: applyCarriage, onComplete,
+  });
 }
 function finishReturn() {
   returning = false;
@@ -490,7 +529,7 @@ function tearAndStart() {
   const oldPage=document.createElement('div');oldPage.className='torn-page';oldPage.setAttribute('aria-hidden','true');
   const bounds=paper.getBoundingClientRect();
   Object.assign(oldPage.style,{left:`${bounds.left}px`,top:`${bounds.top}px`,width:`${bounds.width}px`,height:`${bounds.height}px`});
-  const oldInk=document.createElement('div');oldInk.className='torn-ink';oldInk.style.transform=carriage.style.transform;oldInk.style.left=`${inset}px`;oldInk.style.top=`${inset}px`;oldInk.append(...Array.from(impressions.children, node => node.cloneNode(true)));oldPage.append(oldInk);
+  const oldInk=document.createElement('div');oldInk.className='torn-ink';oldInk.style.transform=carriage.style.transform;oldInk.style.left=`${inset}px`;oldInk.style.top=`${writingInset}px`;oldInk.append(...Array.from(impressions.children, node => node.cloneNode(true)));oldPage.append(oldInk);
   if(!reduceMotion.matches)$('#desk').append(oldPage);
   if(pagePrompt.open)pagePrompt.close();if(menu.open)menu.close();
   machine.newDocument();pending=[];renderDocument();persist(true);
@@ -512,7 +551,7 @@ window.visualViewport?.addEventListener('resize',measure);
 window.visualViewport?.addEventListener('scroll',measure);
 window.addEventListener('pagehide',()=>persist(true));
 document.addEventListener('visibilitychange',()=>{if(document.hidden)persist(true);});
-reduceMotion.addEventListener('change',()=>{gsap.killTweensOf(lighting);gsap.killTweensOf(driver);Object.assign(driver,{feed:updateWritingPoint(),review:0});applyCarriage();if(returning)finishReturn();});
+reduceMotion.addEventListener('change',()=>{gsap.killTweensOf(lighting);gsap.killTweensOf(driver);strikeTween?.kill();gsap.set(typebar,{yPercent:0,rotateX:14});Object.assign(driver,{review:0,...updateWritingPoint()});applyCarriage();if(returning)finishReturn();});
 if(!navigator.platform.toLowerCase().includes('mac'))$('#save-shortcut').textContent='Ctrl S';
 if(touch.matches)$('#review-help').textContent='Swipe the paper to read';
 resetNativeInput();updateSoundControls();measure();renderDocument();persist(true);
