@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, viewport-fit=cover">
   <meta name="theme-color" content="#080706">
   <meta name="description" content="Choose from three mechanical typewriters with moving keys, distinct recorded sounds, and dark ribbon ink.">
   <title>Paper · An online typewriter</title>
@@ -18,10 +18,10 @@
   <meta name="twitter:image" content="https://npclabs-19.github.io/paper-typewriter/assets/og.png">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="preload" href="./assets/fonts/TT2020.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="./style.css?v=mechanics">
+  <link rel="stylesheet" href="./style.css?v=studio">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Paper","url":"https://npclabs-19.github.io/paper-typewriter/","applicationCategory":"ProductivityApplication","operatingSystem":"Any","description":"A minimal online typewriter with mechanical sound, ribbon ink, and local saving.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <script defer src="./assets/vendor/gsap.min.js"></script>
-  <script type="module" src="./app.js?v=mechanics-2"></script>
+  <script type="module" src="./app.js?v=studio"></script>
 </head>
 <body>
   <a class="skip-link" href="#key-input">Skip to paper</a>
@@ -52,6 +52,10 @@
       <label title="Olivetti Lettera 22 · manual carriage"><input type="radio" name="machine" value="lettera" aria-label="Olivetti Lettera 22, manual carriage"><span class="machine-chip" style="--swatch:#638e7f"></span><span>Lettera 22</span></label>
       <label title="IBM Selectric II · automatic return"><input type="radio" name="machine" value="selectric" aria-label="IBM Selectric II, automatic return"><span class="machine-chip" style="--swatch:#d3bb8d"></span><span>Selectric II</span></label>
     </fieldset>
+    <div id="mobile-keys" role="group" aria-label="Touch typing controls">
+      <button id="touch-type" type="button">Type</button>
+      <button id="touch-return" type="button"><span aria-hidden="true">↵</span> Return</button>
+    </div>
     <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open typewriter menu" aria-expanded="false" aria-controls="controls" title="Menu · Esc">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h12M4 12h12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
     </button>

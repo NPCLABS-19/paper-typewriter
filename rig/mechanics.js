@@ -183,15 +183,15 @@ export function basket(parent) {
     const slug = box(pivot,mats.steel,0,length*.993,.022,.096,.138,.099,.014);
     box(pivot,mats.chrome,0,length*1.005,-.040,.089,.085,.028);
     elbow.rotation.z = fan*.038;
-    slug.castShadow = true;
     drum(segment,mats.brass,base.x,base.y,base.z,.055,.074,'x');
     const rear = v(base.x*.81, .76, 1.77);
     const link = rod(segment,mats.darkSteel,rear,base,.017);
     pivot.quaternion.copy(sweep);
-    bars.set(key,{pivot,sweep,impact,link,rear,base});
+    bars.set(key,{pivot,sweep,impact,link,rear,base,slug});
   });
   return {segment,bars,move(bar,stroke) {
     bar.pivot.quaternion.slerpQuaternions(bar.sweep,bar.impact,stroke);
+    bar.slug.castShadow=stroke>.20;
     stretch(bar.link,bar.rear,bar.base.clone().add(v(0,.092*stroke,-.12*stroke)),.017);
   }};
 }

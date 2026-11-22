@@ -1,9 +1,8 @@
 import {
-  ACESFilmicToneMapping, AmbientLight, DirectionalLight, HemisphereLight, OrthographicCamera,
-  PCFShadowMap, PlaneGeometry, PMREMGenerator, Raycaster, Scene, SRGBColorSpace,
-  Vector2, WebGLRenderer,
+  ACESFilmicToneMapping, Color, DirectionalLight, DoubleSide, HemisphereLight, Mesh, MeshBasicMaterial,
+  OrthographicCamera, PCFShadowMap, PlaneGeometry, PMREMGenerator, Raycaster, Scene, SpotLight,
+  SRGBColorSpace, Vector2, WebGLRenderer,
 } from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { box, drum, GROUP, mats, piece, profileShell, rod, SHEET_WIDTH, STRIKE, stretch, v, wood } from './parts.js';
 import { basket, electricCarrier, keyboard, mechanicalKey, platen, ribbon } from './mechanics.js';
 import { MACHINES } from '../profiles.js';
@@ -15,13 +14,34 @@ const plateRadius = .357;
 const rigs = new WeakMap();
 export const rigFor = canvas => rigs.get(canvas);
 
+function studioEnvironment(renderer) {
+  const room=new Scene();
+  room.background=new Color(0x201b18);
+  function panel(width,height,position,color,intensity) {
+    const material=new MeshBasicMaterial({color:new Color(color).multiplyScalar(intensity),side:DoubleSide,toneMapped:false});
+    const light=new Mesh(new PlaneGeometry(width,height),material);
+    light.position.set(...position);
+    light.lookAt(0,1.3,.8);
+    room.add(light);
+  }
+  panel(5.6,3.6,[-5.3,7,5],0xffdab2,4.2);
+  panel(7,1.65,[.2,8,-1.2],0xfff0d9,2.6);
+  panel(2.1,5,[4.8,4,-5],0xcbdcff,3.9);
+  panel(5.5,3,[1.2,2.9,8],0xb5bdcc,.63);
+  const generator=new PMREMGenerator(renderer);
+  const target=generator.fromScene(room,.025,.15,35);
+  room.traverse(object=>{object.geometry?.dispose();object.material?.dispose();});
+  generator.dispose();
+  return target;
+}
+
 export class MechanicalRig {
   constructor(canvas) {
     this.canvas = canvas;
     this.renderer = new WebGLRenderer({canvas, alpha: true, antialias: true, powerPreference: 'high-performance'});
     this.renderer.outputColorSpace = SRGBColorSpace;
     this.renderer.toneMapping = ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = .89;
+    this.renderer.toneMappingExposure = 1.05;
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.renderer.shadowMap.autoUpdate = false;
@@ -37,27 +57,25 @@ export class MechanicalRig {
     rigs.set(canvas,this);
   }
   stage() {
-    const generator = new PMREMGenerator(this.renderer);
-    const environment = new RoomEnvironment();
-    this.scene.environment = generator.fromScene(environment, .065).texture;
-    this.scene.environmentIntensity = .52;
-    generator.dispose();
-    environment.dispose();
-    this.scene.add(new AmbientLight(0xffead9,.065));
-    this.scene.add(new HemisphereLight(0xfff2de,0x27212d,.54));
-    const main = new DirectionalLight(0xffd3a7,2.25);
-    main.position.set(-8,9,5);
-    main.target.position.set(0,.5,1.3);
+    this.environment=studioEnvironment(this.renderer);
+    this.scene.environment=this.environment.texture;
+    this.scene.environmentIntensity=.68;
+    this.scene.add(new HemisphereLight(0xe5eeff,0x4a3327,.46));
+    const main=new SpotLight(0xffe3c7,240,27,.70,.66,2);
+    main.position.set(-5.3,7,5);
+    main.target.position.set(.2,1,1.2);
     main.castShadow = true;
     main.shadow.mapSize.set(1024,1024);
-    Object.assign(main.shadow.camera,{left:-9,right:9,top:7,bottom:-9,far:30});
-    main.shadow.normalBias = .033;
-    main.shadow.bias = -.0005;
+    main.shadow.camera.near=1;
+    main.shadow.camera.far=23;
+    main.shadow.normalBias=.025;
+    main.shadow.bias=-.00022;
+    main.shadow.radius=2.6;
     this.scene.add(main,main.target);
-    this.fill = new DirectionalLight(0xe2eaff,1.32);
-    this.fill.position.set(5,4,-6);
+    this.fill = new DirectionalLight(0xcbdcff,1.04);
+    this.fill.position.set(4.8,4,-5);
     this.scene.add(this.fill);
-    const board = piece(this.scene,new PlaneGeometry(34,12),wood(this.queue),0,-.04,3.8);
+    const board = piece(this.scene,new PlaneGeometry(34,20),wood(this.queue),0,-.04,7.8);
     board.rotation.x=-Math.PI/2;
     board.receiveShadow=true;
   }
@@ -134,8 +152,8 @@ export class MechanicalRig {
     const m=this.machine;
     const shift=m.shift.value;
     const worldX=(this.pose.x-this.width/2)/this.scale;
-    const cameraFollow=m.electric ? 0 : -worldX;
-    m.paper.carriage.position.x=cameraFollow;
+    const carriageX=m.electric ? 0 : -worldX;
+    m.paper.carriage.position.x=carriageX;
     m.paper.carriage.position.y=m.profile.shape==='rounded' ? shift*.13 : 0;
     if(m.bars) m.bars.segment.position.y=m.profile.shape==='compact' ? -shift*.13 : 0;
     const rollerAngle=-this.pose.feed/(this.scale * Math.cos(angle) * plateRadius);
@@ -147,7 +165,7 @@ export class MechanicalRig {
     m.pawl.rotation.y=-m.escapement.value*.55;
     m.bell.rotation.z=.009*m.bellMotion.value;
     m.clapper.rotation.y=m.bellMotion.value*1.45;
-    stretch(m.cord,v(3.68,1.59,-.88),v(cameraFollow-3.8,1.60,-.89),.014);
+    stretch(m.cord,v(3.68,1.59,-.88),v(carriageX-3.8,1.60,-.89),.014);
     if(m.element) {
       m.element.carrier.position.x=worldX;
       m.element.strap.position.z=-.13-m.actor.stroke*.328;
@@ -156,9 +174,14 @@ export class MechanicalRig {
       m.element.drive.rotation.y=worldX*4.0;
     }
     this.cameraCenter.copy(STRIKE).addScaledVector(up,-(this.height*.5-this.strikeY)/this.scale);
-    this.cameraCenter.x=cameraFollow;
     this.camera.position.copy(this.cameraCenter).add(cameraOffset);
     this.camera.lookAt(this.cameraCenter);
+    // Update the lamp's shadow as the carriage and roller move beneath it.
+    const now=performance.now();
+    if(now-(this.lastShadow||0)>40){
+      this.renderer.shadowMap.needsUpdate=true;
+      this.lastShadow=now;
+    }
     this.renderer.render(this.scene,this.camera);
   }
   press(key,side) {
@@ -231,7 +254,7 @@ export class MechanicalRig {
     this.gsap.timeline({onUpdate:this.queue}).to(bail.rotation,{x:-.80,duration:.22,ease:'power2.out'}).to(bail.rotation,{x:0,duration:.28,ease:'power2.inOut'},'+=.20');
   }
   light(x,y) {
-    this.fill.position.set(4+x*4,3+y*4,-3);
+    this.fill.position.set(4.6+x*.4,3.8+y*.4,-5);
     this.queue();
   }
   pick(x,y) {

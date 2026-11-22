@@ -38,7 +38,17 @@ await page.addInitScript(()=>{
   AudioBufferSourceNode.prototype.start=function(when,...args){window.__audio.push({duration:this.buffer?.duration,when,current:this.context.currentTime,rate:this.playbackRate.value});return start.call(this,when,...args);};
 });
 const url=process.env.TEST_URL||'http://127.0.0.1:4400/';
-await page.goto(url);await page.evaluate(()=>document.fonts.ready);await page.waitForTimeout(300);
+await page.goto(url);await page.evaluate(()=>document.fonts.ready);
+await page.waitForSelector('html.has-rig',{state:'attached'});
+const blank=await page.evaluate(async()=>{
+  const {rigFor}=await import('./assets/machine.mjs?v=studio');
+  const rig=rigFor(document.querySelector('#machine-view'));
+  const paper=document.querySelector('#paper').getBoundingClientRect();
+  let textured=false;
+  rig.machine.root.traverse(({material})=>{if(material?.map && material?.roughnessMap && material.map!==material.roughnessMap)textured=true;});
+  return {centered:Math.abs(paper.x+paper.width/2-innerWidth/2)<1,camera:rig.camera.position.x,carriage:Math.abs(rig.machine.paper.carriage.position.x),textured};
+});
+assert.deepEqual(blank,{centered:true,camera:0,carriage:0,textured:true});
 const text=()=>page.evaluate(key=>JSON.parse(localStorage.getItem(key)).documents.find(d=>d.id===JSON.parse(localStorage.getItem(key)).activeId).lines.join('\n'),STORAGE_KEY);
 const persist=()=>page.waitForTimeout(180);
 await page.keyboard.type('A page, a thought.');
@@ -51,7 +61,7 @@ await persist();assert.equal(await text(),'A page, a thought.!');
 async function instrumentMotion() {
   await page.waitForSelector('html.has-rig',{state:'attached'});
   await page.evaluate(async()=>{
-  const {rigFor}=await import('./assets/machine.mjs?v=2');
+  const {rigFor}=await import('./assets/machine.mjs?v=studio');
   const rig=rigFor(document.querySelector('#machine-view'));
   window.mechanism=rig;
   const draw=rig.draw.bind(rig);
@@ -59,7 +69,7 @@ async function instrumentMotion() {
   rig.draw=()=>{
     draw();
     const m=rig.machine;
-    steps.push({carriage:m.paper.carriage.position.x,roller:m.paper.cylinder.rotation.x,
+    steps.push({camera:rig.camera.position.x,paper:document.querySelector('#paper').getBoundingClientRect().x,carriage:m.paper.carriage.position.x,roller:m.paper.cylinder.rotation.x,
       key:m.keys.get('X')[0].rotation.x,bar:m.bars?.bars.get('X').motion?.value||0,
       ribbon:m.lift.value,spool:m.tape.spools[0].rotation.y,lever:m.paper.lever.rotation.y,
       ball:m.element?.ballPivot.rotation.y,carrier:m.element?.carrier.position.x});
@@ -70,6 +80,7 @@ await instrumentMotion();
 const initial=await page.evaluate(()=>({x:mechanism.machine.paper.carriage.position.x, spool:mechanism.machine.tape.spools[0].rotation.y}));
 await page.keyboard.type(' x');
 await page.waitForFunction(({x,spool})=>steps.some(frame=>frame.key>.02 && frame.bar>.1 && frame.ribbon>.08)&&steps.some(frame=>frame.carriage<x-.13&&frame.spool<spool),initial);
+assert(await page.evaluate(()=>steps.every(frame=>frame.camera===0) && new Set(steps.map(frame=>Math.round(frame.paper))).size>1),'paper moves and the camera stays fixed');
 await page.evaluate(()=>{window.steps=[];});
 await page.keyboard.press('Enter');
 await page.waitForFunction(({x})=>steps.some(frame=>frame.lever<-.12)&&steps.some(frame=>frame.carriage>x+.4&&frame.roller<-.10),initial);
@@ -77,7 +88,8 @@ await page.keyboard.type('Buffered through return.x');await page.keyboard.press(
 await page.reload();await page.waitForTimeout(250);assert.equal(await text(),'A page, a thought.! x\nBuffered through return.');assert.equal(await page.locator('#impressions .impression').count(),Array.from((await text()).replace(/\s/g,'')).length);
 await page.keyboard.press('Escape');await page.locator('#new-sheet').click();await page.locator('#keep-typing').click();assert.equal(await text(),'A page, a thought.! x\nBuffered through return.');
 await page.keyboard.press('Escape');await page.locator('#new-sheet').click();await page.locator('#tear-page').click();assert(await page.locator('.torn-page').count());await page.waitForTimeout(950);assert.equal(await page.locator('.torn-page').count(),0);
-await page.mouse.click(720,400);await page.keyboard.type('a'.repeat(60));await persist();assert.equal((await text()).length,60);
+await page.mouse.click(720,400);await page.keyboard.type('a'.repeat(60));
+await page.waitForFunction(key=>{const state=JSON.parse(localStorage.getItem(key));return state.documents.find(doc=>doc.id===state.activeId).lines[0].length===60;},STORAGE_KEY);
 let audio=await page.evaluate(()=>window.__audio);assert(audio.some(x=>x.duration>1 && x.duration<1.2),'real margin bell played');
 await page.keyboard.type('b'.repeat(12));await persist();assert.equal((await text()).length,68);assert.equal(await page.locator('#margin-hint').textContent(),'Enter to return');
 await page.keyboard.press('Backspace');await persist();assert.equal((await text()).length,67);assert.equal(await page.locator('#margin-hint').textContent(),'');
@@ -115,11 +127,15 @@ console.log('PASS three distinct recording sets, Selectric typeball, automatic r
 await page.emulateMedia({reducedMotion:'reduce'});await page.keyboard.type(' reduced');await persist();const transform=await page.locator('#carriage').evaluate(e=>getComputedStyle(e).transform);await page.waitForTimeout(120);assert.equal(await page.locator('#carriage').evaluate(e=>getComputedStyle(e).transform),transform);
 console.log('PASS desktop: Backspace and Delete, blocked replacement and undo, vertical strike, lateral advance, paper feed, buffered returns, persistence, bell, lock, text/PNG exports, mute, archive, keyboard navigation, axe, reduced motion');
 
-const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});const mp=await mobile.newPage();await mp.goto(url);await mp.tap('#desk');
+const mobile=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});const mp=await mobile.newPage();await mp.goto(url);
+await mp.waitForSelector('html.has-rig',{state:'attached'});
+assert(await mp.locator('#touch-type').isVisible());assert(await mp.locator('#touch-return').isVisible());
+assert(await mp.locator('#paper').evaluate(el=>Math.abs(el.getBoundingClientRect().x+el.clientWidth/2-innerWidth/2)<1));
+await mp.locator('#touch-type').tap();assert.equal(await mp.evaluate(()=>document.activeElement.id),'key-input');
 for(const char of ['t','e','h',' '])await mp.locator('#key-input').evaluate((el,char)=>el.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertText',data:char,bubbles:true,cancelable:true})),char);
 await mp.locator('#key-input').evaluate(el=>el.dispatchEvent(new InputEvent('beforeinput',{inputType:'insertReplacementText',data:'the ',bubbles:true,cancelable:true})));
 await mp.locator('#key-input').evaluate(el=>{el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));el.dispatchEvent(new CompositionEvent('compositionend',{data:'é',bubbles:true}));});
-await mp.waitForTimeout(200);const mt=await mp.evaluate(k=>JSON.parse(localStorage.getItem(k)).documents[0].lines[0],STORAGE_KEY);assert.equal(mt,'teh é');
+await mp.waitForFunction(k=>JSON.parse(localStorage.getItem(k)).documents[0].lines[0]==='teh é',STORAGE_KEY);
 assert.equal(await mp.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
 await mp.locator('#key-input').evaluate(el=>el.dispatchEvent(new InputEvent('beforeinput',{inputType:'deleteContentBackward',bubbles:true,cancelable:true})));
 await mp.waitForTimeout(180);
@@ -130,10 +146,10 @@ await mp.keyboard.press('Escape');await mp.keyboard.type('a'.repeat(63));await m
 const layout=await mp.evaluate(()=>{
   const paper=document.querySelector('#paper').getBoundingClientRect();
   const letters=[...document.querySelectorAll('#impressions .impression')].map(node=>node.getBoundingClientRect());
-  return {center: Math.abs(paper.x+paper.width/2-innerWidth/2)<1, wrapped: letters.at(-1).top>letters[0].top,
-    allInside: letters.every(rect=>rect.left>=paper.left && rect.right<=paper.right)};
+  return {wrapped: letters.at(-1).top>letters[0].top,
+    allInside: letters.every(rect=>rect.left>=Math.max(0,paper.left) && rect.right<=Math.min(innerWidth,paper.right))};
 });
-assert.deepEqual(layout,{center:true,wrapped:true,allInside:true});
+assert.deepEqual(layout,{wrapped:true,allInside:true});
 await mp.emulateMedia({reducedMotion:'reduce'});
 for(let i=0;i<29;i++){await mp.keyboard.press('Enter');await mp.keyboard.type('line');}
 await mp.waitForTimeout(180);
@@ -146,6 +162,9 @@ await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
 assert(await offset()>afterFeed+50,'swipe reveals earlier lines');
 await mp.keyboard.type('!');await mp.waitForTimeout(230);
 assert(Math.abs(await offset()-afterFeed)<1,'typing returns to the active line');
-console.log('PASS mobile: Backspace, IME, centered sheet, wrapping inside margins, review, return to writing');
+await mp.locator('#touch-return').tap();
+assert.equal(await mp.evaluate(()=>document.activeElement.id),'key-input');
+await mp.waitForFunction(k=>JSON.parse(localStorage.getItem(k)).documents[0].lines.at(-1)==='',STORAGE_KEY);
+console.log('PASS mobile: Type and Return controls, blank sheet parking, Backspace, IME, visible wrapping, review');
 assert.deepEqual(errors,[]);console.log('PASS no JavaScript errors');
 await browser.close();

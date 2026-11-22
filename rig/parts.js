@@ -71,11 +71,72 @@ export function rod(parent, mat, from, to, radius) {
   stretch(mesh, from, to, radius);
   return mesh;
 }
+function noise(x, y, pitch, seed) {
+  const sx=x/pitch, sy=y/pitch;
+  const ix=Math.floor(sx), iy=Math.floor(sy);
+  const smooth=t=>t*t*(3-2*t);
+  const tx=smooth(sx-ix), ty=smooth(sy-iy);
+  const mix=(a,b,t)=>a+(b-a)*t;
+  return mix(mix(hash(ix+seed,iy),hash(ix+1+seed,iy),tx),mix(hash(ix+seed,iy+1),hash(ix+1+seed,iy+1),tx),ty);
+}
+function casingMaps(profile) {
+  const size=384;
+  const surfaces=Array.from({length:2},()=>{
+    const canvas=document.createElement('canvas');
+    canvas.width=canvas.height=size;
+    return canvas.getContext('2d');
+  });
+  const [color,roughness]=surfaces.map(ctx=>ctx.createImageData(size,size));
+  const tone=[profile.finish>>16&255,profile.finish>>8&255,profile.finish&255];
+  const electric=profile.kind==='electric';
+  const matte=profile.shape==='compact';
+  const midRoughness=electric?.57:matte?.52:.36;
+  for(let y=0;y<size;y++) for(let x=0;x<size;x++) {
+    const i=(x+y*size)*4;
+    const speck=hash(x,y)-.5;
+    const peel=noise(x,y,electric?3:5,9)-.5;
+    const age=noise(x,y,38,41)-.5;
+    const finish=1+age*.19+peel*(matte?.15:.085)+speck*.045;
+    const r=midRoughness+peel*.19+age*.23+speck*.05;
+    for(let channel=0;channel<3;channel++) color.data[i+channel]=tone[channel]*finish+speck*5;
+    color.data[i+3]=255;
+    // Red carries surface height, green roughness, and blue exposed metal.
+    roughness.data[i]=128+peel*50+speck*13;
+    roughness.data[i+1]=r*255;
+    roughness.data[i+2]=electric?3:18;
+    roughness.data[i+3]=255;
+  }
+  surfaces[0].putImageData(color,0,0);
+  surfaces[1].putImageData(roughness,0,0);
+  for(let i=0;i<(electric?54:94);i++){
+    const x=hash(i,51)*size,y=hash(i,73)*size;
+    const length=2+hash(i,91)**3*(electric?13:30);
+    const angle=hash(i,58)*Math.PI;
+    const chip=!electric&&i%13===0;
+    for(const [j,ctx] of surfaces.entries()) {
+      ctx.lineCap='round';
+      ctx.lineWidth=chip?1.3:.5+hash(i,21)*.63;
+      ctx.strokeStyle=j===0?(chip?'rgba(116,110,99,.78)':i%3?'rgba(34,25,24,.36)':'rgba(247,227,201,.31)'):(chip?'rgb(96,186,178)':'rgba(105,194,29,.53)');
+      ctx.beginPath();
+      ctx.moveTo(x,y);
+      ctx.quadraticCurveTo(x+Math.cos(angle)*length*.46,y+Math.sin(angle)*length*.50+1,x+Math.cos(angle)*length,y+Math.sin(angle)*length);
+      ctx.stroke();
+    }
+  }
+  return surfaces.map((ctx,i)=>{
+    const map=new CanvasTexture(ctx.canvas);
+    map.wrapS=map.wrapT=RepeatWrapping;
+    if(i===0)map.colorSpace=SRGBColorSpace;
+    map.anisotropy=4;
+    return map;
+  });
+}
 export function paint(profile) {
-  const grain=surfaceMap();
-  return new MeshPhysicalMaterial({color:profile.finish,map:grain,bumpMap:grain,bumpScale:.016,
-    metalness:profile.kind==='electric'?.08:.37,roughness:profile.kind==='electric'?.43:.32,
-    clearcoat:.81,clearcoatRoughness:.25,envMapIntensity:.8});
+  const [color,pbr]=casingMaps(profile);
+  const glossy=profile.shape==='rounded';
+  return new MeshPhysicalMaterial({map:color,bumpMap:pbr,bumpScale:glossy?.016:.027,
+    metalness:profile.kind==='electric'?0:1,metalnessMap:pbr,roughness:1,roughnessMap:pbr,
+    clearcoat:glossy?.48:.17,clearcoatRoughness:glossy?.35:.48,clearcoatRoughnessMap:pbr,envMapIntensity:.85});
 }
 export const mats = {
   black: new MeshStandardMaterial({color: 0x0c0b0c, roughness: .76, metalness: .08}),
@@ -122,6 +183,7 @@ export function profileShell(parent, profile) {
     const cheek = box(parent, enamel, sign * side, .90, 1.6, .64, .76, 5.31, round * .70);
     cheek.rotation.x = .104;
     cheek.castShadow = true;
+    cheek.receiveShadow = true;
     box(parent, mats.rubber, sign * (side - .25), .075, 3.70, .75, .16, .46, .08);
     box(parent, mats.rubber, sign * (side - .25), .075, -.36, .75, .16, .46, .08);
     box(parent, enamel, sign * (side - .42), 1.40, -.03, 1.71, .40, 1.66, round * .55);
@@ -145,7 +207,12 @@ export function profileShell(parent, profile) {
   cutaway.quadraticCurveTo(0, -1.54, -side + .68, -.83);
   cutaway.closePath();
   casting.holes.push(cutaway);
-  const shell = piece(parent, new ExtrudeGeometry(casting, {depth: .13, bevelThickness: .095, bevelSize: .085, bevelSegments: 6, curveSegments: 26}), enamel, 0, 1.12, -.08);
+  const castGeometry=new ExtrudeGeometry(casting, {depth:.13,bevelThickness:.095,bevelSize:.085,bevelSegments:6,curveSegments:26});
+  // The extruded top uses dimensions in model units. Spread the finish across it
+  // at the same scale as the enamel on the side panels.
+  const uv=castGeometry.getAttribute('uv');
+  for(let i=0;i<uv.count;i++) uv.setXY(i,uv.getX(i)*.18+.37,uv.getY(i)*.18+.47);
+  const shell = piece(parent, castGeometry, enamel, 0, 1.12, -.08);
   shell.rotation.x = -Math.PI / 2;
   shell.castShadow = true;
   shell.receiveShadow = true;
@@ -174,7 +241,7 @@ export function wood(onLoad) {
   ctx.putImageData(image, 0, 0);
   const map = new CanvasTexture(canvas);
   map.wrapS = map.wrapT = RepeatWrapping;
-  map.repeat.set(2.4, 2.4);
+  map.repeat.set(2.4, 4.0);
   map.colorSpace = SRGBColorSpace;
   const board = new MeshStandardMaterial({color: new Color(0x9b785e), map, roughness: .71, bumpMap: map, bumpScale: .031});
   const sample=new Image();

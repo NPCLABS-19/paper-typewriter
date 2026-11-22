@@ -93,6 +93,8 @@ function updateSoundControls() {
 }
 function applyCarriage() {
   const offset = driver.review - driver.feed;
+  const travel = rig && MACHINES[profileId].kind === 'manual' ? innerWidth / 2 - driver.headX : 0;
+  paper.style.setProperty('--carriage-travel', `${travel}px`);
   gsap.set([carriage, paperStock], {y: offset});
   gsap.set(guide, {x: driver.headX});
   const reviewing = driver.review > 1;
@@ -148,7 +150,10 @@ function updateWritingPoint() {
   writingPoint.style.top = `${row * lh + lh * .73}px`;
   const feed = row * lh;
   paperStock.style.height = `${paperHeight + Math.max(feed, driver.feed)}px`;
-  return {feed, headX: headPosition(column + (machine.full ? 1 : 0))};
+  const blank = machine.row === 0 && machine.column === 0;
+  paper.dataset.blank = blank;
+  const parked = blank && rig && MACHINES[profileId].kind === 'manual';
+  return {feed, headX: parked ? innerWidth / 2 : headPosition(column + (machine.full ? 1 : 0))};
 }
 function positionImpression(node, row, column) {
   const [x, y] = displayPosition(row, column);
@@ -162,8 +167,10 @@ function measure() {
   const view = window.visualViewport;
   const height = view ? view.height : innerHeight;
   const offsetTop = view?.offsetTop || 0;
-  const narrow = innerWidth <= 740;
-  anchor = {x: innerWidth / 2, y: offsetTop + height * (rig ? narrow ? .68 : .54 : narrow ? .72 : .575)};
+  const narrow = innerWidth <= 740 || (touch.matches && innerWidth <= 950);
+  root.classList.toggle('keyboard-open', narrow && height < innerHeight * .76);
+  const platenPosition = narrow ? (height < 440 ? .61 : .705) : .54;
+  anchor = {x: innerWidth / 2, y: offsetTop + height * (rig ? platenPosition : narrow ? .72 : .575)};
   root.style.setProperty('--stage-height', `${height}px`);
   root.style.setProperty('--stage-offset', `${offsetTop}px`);
   root.style.setProperty('--guide-x', `${anchor.x}px`);
@@ -172,12 +179,16 @@ function measure() {
   inset = parseFloat(getComputedStyle(paper).paddingLeft);
   paperHeight = paper.clientHeight;
   const bounds = paper.getBoundingClientRect();
-  paperLeft = bounds.left;
+  paperLeft = (innerWidth - bounds.width) / 2;
   writingInset = Math.max(8, paperHeight - lh * .73 - (narrow ? 43 : 59));
   root.style.setProperty('--writing-inset', `${writingInset}px`);
   root.style.setProperty('--strike-y', `${bounds.top + writingInset + lh * .73}px`);
   rig?.resize(innerWidth,innerHeight,bounds.width,bounds.top+writingInset+lh*.73);
-  displayColumns = Math.max(1, Math.min(COLUMNS, Math.floor((paper.clientWidth - 2 * inset) / cw)));
+  const width = paper.clientWidth - 2 * inset;
+  const textWidth = narrow && rig ? Math.min(width, innerWidth/2 - 15) : width;
+  displayColumns = Math.max(1, Math.min(COLUMNS, Math.floor(textWidth / cw)));
+  if (narrow && rig) inset = (paper.clientWidth - displayColumns*cw)/2;
+  paper.style.setProperty('--writing-left', `${inset}px`);
   layoutRows();
   for (const node of impressions.children) {
     positionImpression(node, Number(node.dataset.row), Number(node.dataset.column));
@@ -294,6 +305,15 @@ function writeCharacter(char) {
   if (tearing) return;
   if (returning) { pending.push(char); return; }
   const profile = MACHINES[profileId];
+  // Start the physical carriage at the left margin only when a blank sheet is used.
+  if (rig && profile.kind === 'manual' && !reduceMotion.matches && machine.row === 0 && machine.column === 0 && Math.abs(driver.headX-innerWidth/2)<1) {
+    returning = true;
+    pending.push(char);
+    rig.return(.18, true);
+    sound.space();
+    gsap.to(driver,{headX:headPosition(0),duration:.18,ease:'power2.inOut',overwrite:true,onUpdate:applyCarriage,onComplete:finishReturn});
+    return;
+  }
   if (machine.full && profile.autoReturn) {
     returnCarriage(true);
     if (returning) {pending.push(char);return;}
@@ -380,6 +400,8 @@ function openMenu() {
   if (!reduceMotion.matches) gsap.fromTo(menu, {y: 8, opacity: 0}, {y: 0, opacity: 1, duration: .18, ease: 'power2.out'});
 }
 function closeMenu() { menu.close(); }
+$('#touch-type').addEventListener('click',()=>{sound.unlock();focusPaper();});
+$('#touch-return').addEventListener('click',()=>{sound.unlock();focusPaper();returnCarriage();});
 function activateControl(control) {
   if (!control || menu.open || pagePrompt.open || tearing) return;
   if (control === '⇧') {
@@ -628,6 +650,10 @@ function applyProfile() {
   root.dataset.model = profileId;
   rig?.select(profileId);
   refreshMarginHint();
+  if (!returning) {
+    gsap.killTweensOf(driver);
+    Object.assign(driver,updateWritingPoint());
+  }
   applyCarriage();
 }
 models.addEventListener('change',event=>{
@@ -642,7 +668,7 @@ models.addEventListener('change',event=>{
   persistPreferences();
 });
 applyProfile();
-import('./assets/machine.mjs?v=2').then(({MechanicalRig})=>{
+import('./assets/machine.mjs?v=studio').then(({MechanicalRig})=>{
   const canvas=$('#machine-view');
   const next=new MechanicalRig(canvas);
   next.select(profileId);
