@@ -1,5 +1,6 @@
 import { Typewriter, COLUMNS, STORAGE_KEY } from './engine.js?v=desk';
-import { MechanicalSound } from './sound.js';
+import { MechanicalSound } from './sound.js?v=mechanics';
+import { MACHINES } from './profiles.js';
 
 const $ = s => document.querySelector(s);
 const root = document.documentElement;
@@ -30,12 +31,18 @@ let stored;
 try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { storageAvailable = false; }
 const machine = new Typewriter(stored);
 const sound = new MechanicalSound();
-sound.prime();
+let profileId = 'olympia';
+let rig;
+let autoTimer;
+let virtualShift = false;
+const ribbonProfiles = {o:MACHINES.olympia,l:MACHINES.lettera,s:MACHINES.selectric};
 try {
   const preferences = JSON.parse(localStorage.getItem('paper.preferences') || '{}');
   sound.enabled = preferences.sound !== false;
   sound.setVolume(typeof preferences.volume === 'number' ? preferences.volume : .65);
+  if (Object.hasOwn(MACHINES,preferences.machine)) profileId = preferences.machine;
 } catch {}
+sound.select(profileId);
 let cw = 12, lh = 29;
 let paperHeight = 0;
 let paperLeft = 0;
@@ -78,7 +85,7 @@ function persist(immediate = false) {
   if (immediate) write(); else saveTimer = setTimeout(write, 120);
 }
 function persistPreferences() {
-  try { localStorage.setItem('paper.preferences', JSON.stringify({sound: sound.enabled, volume: sound.volume})); } catch {}
+  try { localStorage.setItem('paper.preferences', JSON.stringify({sound: sound.enabled, volume: sound.volume, machine: profileId})); } catch {}
 }
 function updateSoundControls() {
   $('#sound-toggle').setAttribute('aria-pressed', String(sound.enabled));
@@ -93,6 +100,7 @@ function applyCarriage() {
     guide.hidden = reviewing;
     headRail.hidden = reviewing;
   }
+  rig?.frame({x:driver.headX,feed:-offset});
 }
 function displayPosition(row, column) {
   const offsets = rowWraps[row];
@@ -155,7 +163,7 @@ function measure() {
   const height = view ? view.height : innerHeight;
   const offsetTop = view?.offsetTop || 0;
   const narrow = innerWidth <= 740;
-  anchor = {x: innerWidth / 2, y: offsetTop + height * (narrow ? .72 : .575)};
+  anchor = {x: innerWidth / 2, y: offsetTop + height * (rig ? narrow ? .68 : .54 : narrow ? .72 : .575)};
   root.style.setProperty('--stage-height', `${height}px`);
   root.style.setProperty('--stage-offset', `${offsetTop}px`);
   root.style.setProperty('--guide-x', `${anchor.x}px`);
@@ -168,6 +176,7 @@ function measure() {
   writingInset = Math.max(8, paperHeight - lh * .73 - (narrow ? 43 : 59));
   root.style.setProperty('--writing-inset', `${writingInset}px`);
   root.style.setProperty('--strike-y', `${bounds.top + writingInset + lh * .73}px`);
+  rig?.resize(innerWidth,innerHeight,bounds.width,bounds.top+writingInset+lh*.73);
   displayColumns = Math.max(1, Math.min(COLUMNS, Math.floor((paper.clientWidth - 2 * inset) / cw)));
   layoutRows();
   for (const node of impressions.children) {
@@ -177,9 +186,12 @@ function measure() {
   driver.review = Math.min(driver.review, driver.feed);
   applyCarriage();
 }
-function inkVariation(index, char) {
+function inkVariation(index, char, profile) {
   const n = Math.abs(Math.sin((index + 1) * 127.1 + char.codePointAt(0) * 311.7) * 43758.5453) % 1;
-  return {opacity: .91 + n * .09, pressure: .24 + n * .31, grainOffset: Math.floor(n * 96), y: (n - .5) * .48, angle: (n - .5) * .55};
+  const density = Math.round(n * profile.variation * 49);
+  return {opacity: 1 - n * profile.variation, pressure: profile.pressure + n * profile.variation * 1.5,
+    color:`rgb(${profile.ink.map(channel=>channel+density).join(' ')})`, grainOffset: Math.floor(n * 96),
+    y: (n - .5) * profile.variation * 3, angle: (n - .5) * profile.variation * 4};
 }
 function impression(char, row, column) {
   if (char === ' ') return;
@@ -189,11 +201,11 @@ function impression(char, row, column) {
   node.dataset.row = row;
   node.dataset.column = column;
   positionImpression(node, row, column);
-  const variation = inkVariation(row * COLUMNS + column, char);
+  const stamp = ribbonProfiles[machine.ribbonAt(row,column)] || MACHINES.olympia;
+  const variation = inkVariation(row * COLUMNS + column, char, stamp);
   node.style.opacity = variation.opacity;
   node.style.setProperty('--ink-pressure', `${variation.pressure}px`);
-  const density = Math.round(14 + (1 - variation.opacity) * 120);
-  node.style.setProperty('--ribbon-color', `rgb(${density + 6} ${density + 2} ${density})`);
+  node.style.setProperty('--ribbon-color', variation.color);
   node.style.translate = `0 ${variation.y}px`;
   node.style.rotate = `${variation.angle}deg`;
   impressions.append(node);
@@ -212,6 +224,7 @@ function refreshSheets() {
   }));
 }
 function renderDocument() {
+  clearTimeout(autoTimer);
   impressions.replaceChildren();
   layoutRows();
   machine.current.lines.forEach((line, row) => Array.from(line).forEach((char, column) => impression(char, row, column)));
@@ -221,9 +234,14 @@ function renderDocument() {
   Object.assign(driver, {review: 0, ...updateWritingPoint()});
   applyCarriage();
   readable.textContent = machine.text;
-  $('#margin-hint').style.opacity = machine.full ? '1' : '0';
-  $('#margin-hint').textContent = machine.full ? 'Enter to return' : '';
+  refreshMarginHint();
   refreshSheets();
+}
+function refreshMarginHint() {
+  const show = machine.full && !MACHINES[profileId].autoReturn;
+  const hint = $('#margin-hint');
+  gsap.set(hint,{opacity:show?1:0,overwrite:true});
+  hint.textContent = show ? 'Enter to return' : '';
 }
 function strikeMotion(char, row, column, node) {
   if (reduceMotion.matches) return;
@@ -231,6 +249,12 @@ function strikeMotion(char, row, column, node) {
   gsap.killTweensOf(driver);
   driver.headX = headPosition(strikeColumn);
   applyCarriage();
+  if (rig) {
+    rig.strike(char);
+    node.style.setProperty('--impact-delay',`${MACHINES[profileId].strike}s`);
+    node.classList.add('fresh-impression');
+    return;
+  }
   slug.textContent = char;
   strikeTween?.kill();
   strikeTween = gsap.timeline()
@@ -250,6 +274,9 @@ function eraseCharacter() {
   }
   const erased = machine.eraseLast();
   if (!erased) return;
+  clearTimeout(autoTimer);
+  rig?.press('Backspace');
+  rig?.step();
   if (erased.char !== ' ' && erased.char !== '\n') impressions.lastElementChild.remove();
   sound.space();
   if (machine.full) showMargin();
@@ -266,28 +293,39 @@ function eraseCharacter() {
 function writeCharacter(char) {
   if (tearing) return;
   if (returning) { pending.push(char); return; }
-  const result = machine.type(char);
+  const profile = MACHINES[profileId];
+  if (machine.full && profile.autoReturn) {
+    returnCarriage(true);
+    if (returning) {pending.push(char);return;}
+  }
+  const result = machine.type(char,profileId[0]);
   if (!result.accepted) {
-    if (result.locked) {sound.locked(); showMargin();}
+    if (result.locked) {rig?.press(char);sound.locked();showMargin();}
     return;
   }
   layoutActiveLine();
-  if (char === ' ') sound.space();
+  if (char === ' ') {rig?.press(' ');rig?.step();sound.space();}
   else {
     sound.strike(result.column);
     const node = impression(char, result.row, result.column);
     strikeMotion(char, result.row, result.column, node);
   }
-  movePaper(.11, undefined, char === ' ' ? 0 : .058);
-  if (result.bell) sound.bell();
-  if (machine.full) showMargin();
+  movePaper(profile.step, undefined, char === ' ' ? 0 : profile.strike);
+  if (result.bell && !profile.autoReturn) {rig?.ding();sound.bell();}
+  if (machine.full) {
+    if (profile.autoReturn) autoTimer = setTimeout(()=>returnCarriage(true),(profile.strike+profile.step)*1000);
+    else showMargin();
+  }
   persist(); updateReadable();
 }
-function returnCarriage() {
+function returnCarriage(automatic = false) {
   if (tearing) return;
   if (returning) { pending.push('\n'); return; }
+  clearTimeout(autoTimer);
   const distance = machine.returnCarriage();
-  const duration = .23 + (distance / COLUMNS) * .26;
+  const profile = MACHINES[profileId];
+  const duration = profile.returnBase + (distance / COLUMNS) * profile.returnTravel;
+  rig?.return(duration,automatic);
   sound.carriage(duration, distance);
   returning = true;
   gsap.to('#margin-hint', {opacity: 0, duration: .12});
@@ -300,7 +338,7 @@ function movePaper(duration, onComplete, delay = 0) {
   const instant = reduceMotion.matches;
   gsap.to(driver, {
     ...target, review: 0, duration: instant ? 0 : duration, delay: instant ? 0 : delay,
-    ease: returning ? 'power3.inOut' : 'power2.out', overwrite: true, onUpdate: applyCarriage, onComplete,
+    ease: returning ? MACHINES[profileId].autoReturn ? 'power4.inOut' : 'power3.inOut' : 'power2.out', overwrite: true, onUpdate: applyCarriage, onComplete,
   });
 }
 function finishReturn() {
@@ -342,17 +380,36 @@ function openMenu() {
   if (!reduceMotion.matches) gsap.fromTo(menu, {y: 8, opacity: 0}, {y: 0, opacity: 1, duration: .18, ease: 'power2.out'});
 }
 function closeMenu() { menu.close(); }
+function activateControl(control) {
+  if (!control || menu.open || pagePrompt.open || tearing) return;
+  if (control === '⇧') {
+    virtualShift = !virtualShift;
+    rig?.shift(virtualShift,'ShiftLeft');
+    sound.shift();
+  } else if (control === '↵' || control === 'feed') returnCarriage();
+  else if (control === '⌫') eraseCharacter();
+  else {
+    const upper = '1234567890-=[];,./';
+    const symbols = '!@#$%^&*()_+{}:<>?';
+    const shifted = symbols[upper.indexOf(control)] || control;
+    writeCharacter(control === 'SPACE' ? ' ' : virtualShift ? shifted : control.toLowerCase());
+    if (virtualShift) {virtualShift=false;rig?.shift(false,'ShiftLeft');}
+  }
+}
 menu.addEventListener('close', () => { menuToggle.setAttribute('aria-expanded', 'false'); revealControls(); focusPaper(); });
 menu.addEventListener('cancel', event => {event.preventDefault();closeMenu();});
 menu.addEventListener('click', event => { if (event.target !== menu) return; const rect=menu.getBoundingClientRect(); if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)closeMenu(); });
 menuToggle.addEventListener('click', () => {sound.unlock();menu.open ? closeMenu() : openMenu();});
 $('#desk').addEventListener('pointerdown', event => {
-  if (event.target.closest('button,dialog,a,input,select') || pagePrompt.open) return;
+  if (event.target.closest('button,dialog,a,input,select,#machines') || pagePrompt.open) return;
   sound.unlock();
   if(event.pointerType==='touch') {
     touchReview={id:event.pointerId,x:event.clientX,y:event.clientY,startY:driver.review,dragged:false};
     $('#desk').setPointerCapture(event.pointerId);
-  } else focusPaper();
+  } else {
+    focusPaper();
+    activateControl(rig?.pick(event.clientX,event.clientY));
+  }
 });
 let touchReview=null;
 $('#desk').addEventListener('pointermove',event=>{
@@ -366,7 +423,11 @@ $('#desk').addEventListener('pointermove',event=>{
 });
 function endReview(event){
   if(!touchReview || event.pointerId!==touchReview.id)return;
-  if(!touchReview.dragged)focusPaper();
+  if(!touchReview.dragged) {
+    const control=rig?.pick(event.clientX,event.clientY);
+    if(control) activateControl(control);
+    else focusPaper();
+  }
   touchReview=null;
 }
 $('#desk').addEventListener('pointerup',endReview);
@@ -374,6 +435,7 @@ $('#desk').addEventListener('pointercancel',()=>{touchReview=null;});
 const lighting = {x: .46, y: .32};
 function applyLighting() {
   gsap.set(paper, {'--light-x': `${36 + lighting.x * 22}%`, '--light-y': `${12 + lighting.y * 28}%`});
+  if (rig) {rig.light(lighting.x,lighting.y);return;}
   const photo = $('.typewriter-front').getBoundingClientRect();
   gsap.set('#desk', {'--reflect-x': `${(lighting.x * innerWidth - photo.left) / photo.width * 100}%`, '--reflect-y': `${(lighting.y * innerHeight - photo.top) / photo.height * 100}%`});
 }
@@ -393,6 +455,7 @@ document.addEventListener('keydown', event => {
   if (event.key === 'Escape') { event.preventDefault(); if(pagePrompt.open)pagePrompt.close();else menu.open ? closeMenu() : openMenu(); return; }
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') { event.preventDefault(); saveText(); return; }
   if (menu.open || pagePrompt.open || tearing) return;
+  if (event.target.closest?.('#machines') && [' ','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
   if (event.key === 'Tab') { revealControls(); return; } // keep native keyboard navigation
   if (event.metaKey || event.ctrlKey) {
     if (['z','y','x','v','a','b','i','u','Backspace','Delete'].includes(event.key) || ['Backspace','Delete'].includes(event.key)) event.preventDefault();
@@ -406,7 +469,7 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End','PageUp','PageDown','Insert'].includes(event.key)) {event.preventDefault();return;}
-  if (event.key === 'Shift' && !event.repeat) {sound.unlock().then(() => sound.shift());return;}
+  if (event.key === 'Shift' && !event.repeat) {rig?.shift(true,event.code);sound.unlock().then(() => sound.shift());return;}
   if (event.altKey && event.key.length !== 1) return;
   if (event.key === 'Enter' || event.key.length === 1) {
     // Enter/Space must activate a focused utility control normally.
@@ -417,6 +480,8 @@ document.addEventListener('keydown', event => {
     if (event.key === 'Enter') returnCarriage(); else writeCharacter(event.key);
   }
 });
+document.addEventListener('keyup',event=>{if(event.key==='Shift')rig?.shift(false,event.code);});
+window.addEventListener('blur',()=>{rig?.shift(false,'ShiftLeft');rig?.shift(false,'ShiftRight');});
 input.addEventListener('beforeinput', event => {
   const type = event.inputType;
   if (event.isComposing || isComposing || type === 'insertCompositionText') return;
@@ -480,14 +545,15 @@ async function saveImage() {
     ctx.font='29.5px Typewriter';ctx.textAlign='center';ctx.textBaseline='alphabetic';
     machine.current.lines.forEach((text,row)=>Array.from(text).forEach((char,col)=>{
       if (char === ' ') return;
-      const ink = inkVariation(row * COLUMNS + col, char);
+      const stamp = ribbonProfiles[machine.ribbonAt(row,col)] || MACHINES.olympia;
+      const ink = inkVariation(row * COLUMNS + col, char,stamp);
       ctx.save();
       ctx.globalAlpha = ink.opacity;
       ctx.translate(margin + col * pitch, margin + row * line + ink.y * scale);
       ctx.rotate(ink.angle * Math.PI / 180);
       ribbon?.setTransform(new DOMMatrix().translate(ink.grainOffset, ink.grainOffset * 2).scale(scale / 2));
-      ctx.fillStyle = ribbon || '#171310';
-      ctx.strokeStyle = '#211813';
+      ctx.fillStyle = stamp === MACHINES.olympia && ribbon ? ribbon : ink.color;
+      ctx.strokeStyle = ink.color;
       ctx.lineWidth = ink.pressure * scale;
       ctx.strokeText(char, 0, 0);
       ctx.fillText(char, 0, 0);
@@ -507,7 +573,7 @@ $('#save-text').addEventListener('click', saveText);
 $('#save-image').addEventListener('click', saveImage);
 $('#print-paper').addEventListener('click', () => {preparePrint();window.print();});
 window.addEventListener('beforeprint',preparePrint);
-$('#sound-toggle').addEventListener('click', () => {sound.enabled=!sound.enabled;updateSoundControls();persistPreferences();if(sound.enabled)sound.unlock().then(()=>sound.space());});
+$('#sound-toggle').addEventListener('click', () => {sound.enabled=!sound.enabled;sound.motor();updateSoundControls();persistPreferences();if(sound.enabled)sound.unlock().then(()=>sound.space());});
 $('#volume').addEventListener('input', event => {sound.setVolume(Number(event.target.value)/100);persistPreferences();});
 $('#volume').addEventListener('change',()=>sound.space());
 $('#fullscreen').addEventListener('click', async () => {
@@ -533,6 +599,7 @@ function tearAndStart() {
   if(!reduceMotion.matches)$('#desk').append(oldPage);
   if(pagePrompt.open)pagePrompt.close();if(menu.open)menu.close();
   machine.newDocument();pending=[];renderDocument();persist(true);
+  rig?.loadSheet();
   sound.play('tear',{gain:.72,rate:1.35});
   const finish=()=>{oldPage.remove();tearing=false;focusPaper();};
   if(reduceMotion.matches){finish();return;}
@@ -550,11 +617,47 @@ window.addEventListener('resize',measure);
 window.visualViewport?.addEventListener('resize',measure);
 window.visualViewport?.addEventListener('scroll',measure);
 window.addEventListener('pagehide',()=>persist(true));
-document.addEventListener('visibilitychange',()=>{if(document.hidden)persist(true);});
+document.addEventListener('visibilitychange',()=>{sound.motor();if(document.hidden)persist(true);});
 reduceMotion.addEventListener('change',()=>{gsap.killTweensOf(lighting);gsap.killTweensOf(driver);strikeTween?.kill();gsap.set(typebar,{yPercent:0,rotateX:14});Object.assign(driver,{review:0,...updateWritingPoint()});applyCarriage();if(returning)finishReturn();});
 if(!navigator.platform.toLowerCase().includes('mac'))$('#save-shortcut').textContent='Ctrl S';
 if(touch.matches)$('#review-help').textContent='Swipe the paper to read';
 resetNativeInput();updateSoundControls();measure();renderDocument();persist(true);
+const models = $('#machines');
+function applyProfile() {
+  models.querySelector(`[value="${profileId}"]`).checked = true;
+  root.dataset.model = profileId;
+  rig?.select(profileId);
+  refreshMarginHint();
+  applyCarriage();
+}
+models.addEventListener('change',event=>{
+  if (!Object.hasOwn(MACHINES,event.target.value)) return;
+  if (returning) {applyProfile();return;}
+  clearTimeout(autoTimer);
+  profileId=event.target.value;
+  virtualShift=false;
+  sound.select(profileId);
+  sound.unlock();
+  applyProfile();
+  persistPreferences();
+});
+applyProfile();
+import('./assets/machine.mjs?v=1').then(({MechanicalRig})=>{
+  const canvas=$('#machine-view');
+  const next=new MechanicalRig(canvas);
+  next.select(profileId);
+  rig=next;
+  canvas.hidden=false;
+  root.classList.add('has-rig');
+  measure();
+  canvas.addEventListener('webglcontextlost',event=>{
+    event.preventDefault();
+    rig=null;
+    canvas.hidden=true;
+    root.classList.remove('has-rig');
+    measure();
+  });
+}).catch(()=>{});
 // Decoding before the first gesture removes first-strike latency; no audio plays before input.
 if (window.AudioContext || window.webkitAudioContext) {
   // The suspended context decodes samples; only a real gesture resumes playback.

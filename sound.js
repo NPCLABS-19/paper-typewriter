@@ -1,4 +1,5 @@
 const FILES = ['strike-1','strike-2','strike-3','strike-4','strike-5','strike-6','space','bell','return','stop','tear'];
+const NAMED = ['strike-1','strike-2','strike-3','strike-4','strike-5','strike-6','space','return'];
 
 /** Recorded mechanisms, decoded once. Audio follows the visual carriage's timing. */
 export class MechanicalSound {
@@ -9,20 +10,22 @@ export class MechanicalSound {
     this.buffers = new Map();
     this.lastStrike = -1;
     this.error = null;
-    this.loading = null;
+    this.loading = new Map();
+    this.machine = 'olympia';
   }
-  prime() {
-    if (this.loading) return this.loading;
+  prime(machine = this.machine) {
+    if (this.loading.has(machine)) return this.loading.get(machine);
     this.createContext();
-    this.loading = Promise.all(FILES.map(async name => {
+    const files = machine === 'lettera' ? FILES : [...NAMED.map(name => `${machine}-${name}`), 'bell', 'stop', 'tear'];
+    if (machine === 'selectric') files.push('selectric-motor');
+    const loading = Promise.all(files.map(async name => {
+      if (this.buffers.has(name)) return;
       const response = await fetch(new URL(`./assets/audio/${name}.wav`, import.meta.url));
       if (!response.ok) throw new Error(`Could not load ${name}`);
-      return [name, await response.arrayBuffer()];
-    })).then(async files => {
-      this.files = files;
-      if (this.context) await Promise.all(files.map(async ([name,data]) => this.buffers.set(name, await this.context.decodeAudioData(data.slice(0)))));
-    }).catch(e => { this.error = e; });
-    return this.loading;
+      if (this.context) this.buffers.set(name, await this.context.decodeAudioData(await response.arrayBuffer()));
+    })).catch(e => { this.error = e; this.loading.delete(machine); });
+    this.loading.set(machine, loading);
+    return loading;
   }
   createContext() {
     try {
@@ -44,13 +47,38 @@ export class MechanicalSound {
       if (!this.context) return;
       if (this.context.state === 'suspended') await this.context.resume();
       await this.prime();
-
+      this.motor();
     } catch(e) { this.error = e; }
   }
   setVolume(value) {
     this.volume = Math.max(0, Math.min(1, value));
     if (this.master) this.master.gain.setTargetAtTime(this.volume * .7, this.context.currentTime, .03);
   }
+  select(machine) {
+    this.machine = machine;
+    this.lastStrike = -1;
+    this.motor();
+    this.prime().then(() => this.motor());
+  }
+  motor() {
+    const running = this.machine === 'selectric' && this.enabled && !document.hidden && this.context?.state === 'running';
+    if (this.motorSource && !running) {
+      this.motorSource.stop();
+      this.motorSource = null;
+    }
+    if (!running || this.motorSource || !this.buffers.has('selectric-motor')) return;
+    const source = this.context.createBufferSource();
+    source.loop = true;
+    source.buffer = this.buffers.get('selectric-motor');
+    const level = this.context.createGain();
+    level.gain.value = .085;
+    source.connect(level);
+    level.connect(this.master);
+    source.onended = () => {source.disconnect();level.disconnect();};
+    source.start();
+    this.motorSource = source;
+  }
+  clip(name) { return this.machine === 'lettera' ? name : `${this.machine}-${name}`; }
   play(name, { gain = 1, rate = 1, delay = 0, pan = 0 } = {}) {
     if (!this.enabled) return;
     if (!this.context || this.context.state !== 'running' || !this.buffers.has(name)) {
@@ -75,17 +103,22 @@ export class MechanicalSound {
     let index = Math.floor(Math.random() * 6);
     if (index === this.lastStrike) index = (index + 1) % 6;
     this.lastStrike = index;
-    this.play(`strike-${index + 1}`, {gain: .85 + Math.random() * .15, rate: .985 + Math.random() * .03, pan: (column / 68 - .5) * .16});
+    this.play(this.clip(`strike-${index + 1}`), {gain: .85 + Math.random() * .15, rate: .985 + Math.random() * .03, pan: (column / 68 - .5) * .16});
   }
-  space() { this.play('space', {gain: .65, rate: .97 + Math.random() * .06}); }
-  shift() { this.play('space', {gain: .32, rate: .78}); }
-  bell() { this.play('bell', {gain: .66, pan: .22}); }
-  locked() { this.play('space', {gain: .23, rate: .7}); }
+  space() { this.play(this.clip('space'), {gain: .65, rate: .97 + Math.random() * .06}); }
+  shift() { this.play(this.clip('space'), {gain: .32, rate: .78}); }
+  bell() { this.play('bell', {gain: .66, rate: this.machine === 'lettera' ? 1.13 : 1, pan: .22}); }
+  locked() { this.play(this.clip('space'), {gain: .23, rate: .7}); }
   carriage(duration, distance) {
+    const name = this.clip('return');
+    if (this.machine === 'selectric') {
+      this.play(name, {gain: .88, rate: (this.buffers.get(name)?.duration || .38) / duration});
+      return;
+    }
     if (distance > 0) {
-      const length = this.buffers.get('return')?.duration || .772;
-      this.play('return', {gain: .8, rate: length / duration, pan: .05});
-    } else this.play('space', {gain: .8, rate: .85});
+      const length = this.buffers.get(name)?.duration || .62;
+      this.play(name, {gain: .8, rate: length / duration, pan: .05});
+    } else this.play(this.clip('space'), {gain: .8, rate: .85});
     this.play('stop', {gain: .7, delay: distance > 0 ? duration - .025 : .07});
   }
 }

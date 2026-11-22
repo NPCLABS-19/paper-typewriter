@@ -27,3 +27,11 @@ https://uniqcode.com/typewriter/ : carriage mechanics, margin warning, fixed str
 https://typewritesomething.com/ : minimal writing experience.
 
 `tear.wav`: **Paper tear** by colorsCrimsonTears, CC0. https://freesound.org/people/colorsCrimsonTears/sounds/566199/ . Leading silence trimmed, converted to mono 44.1kHz, tail faded.
+
+## Working models
+
+The Olympia SM3 and Olivetti Lettera 22 use separate moving keys, linkages, typebars, ribbon lifts, rails, and rotating platens. They are original 3D interpretations of the mechanisms in the [Olympia SM service manual](https://site.xavier.edu/polt/typewriters/OlympiaSMServiceManual1955.pdf) and the [Olivetti Lettera 22 manual](https://www.museotecnologicamente.it/wp-content/uploads/Lettera_22_instructions_ing.pdf). The [IBM Selectric history](https://www.ibm.com/history/selectric) and [operating instructions](https://publications.lexmark.com/publications/pdfs/2007/typewriters/Selectric.pdf) informed the electric model’s typeball and moving carrier. Automatic return at column 68 is an app feature for the Selectric.
+
+The Olympia sound set uses ikomlino’s public-domain [typing](https://freesound.org/people/ikomlino/sounds/852748/), [space bar](https://freesound.org/people/ikomlino/sounds/852747/), and [roller winding](https://freesound.org/people/ikomlino/sounds/852749/) recordings from a vintage Olympia. The source does not identify the exact Olympia model. The Olivetti uses the recorded Lettera 22 strikes listed above. The Selectric keys, motor bed, and return are cut from secretmojo’s [IBM Selectric II recording](https://freesound.org/people/secretmojo/sounds/224012/), also CC0.
+
+The browser renderer uses Three.js. MIT license in `assets/vendor/THREE-LICENSE.txt`.

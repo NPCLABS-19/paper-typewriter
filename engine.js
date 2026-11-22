@@ -12,7 +12,8 @@ export class Typewriter {
     if (saved?.version === 1 && Array.isArray(saved.documents)) {
       this.documents = saved.documents.filter(d => typeof d.id === 'string' && Array.isArray(d.lines))
         .map((d,i) => ({ id: d.id, number: Number.isInteger(d.number) ? d.number : i + 1, created: d.created || new Date().toISOString(),
-          lines: d.lines.map(l => typeof l === 'string' ? Array.from(l).slice(0, COLUMNS).join('') : '') }));
+          lines: d.lines.map(l => typeof l === 'string' ? Array.from(l).slice(0, COLUMNS).join('') : ''),
+          ribbons: Array.isArray(d.ribbons) ? d.ribbons.map(line => typeof line === 'string' ? line.slice(0,COLUMNS) : '') : [] }));
       this.activeId = saved.activeId;
     }
     this.documents = this.documents.slice(-MAX_PAGES);
@@ -25,9 +26,13 @@ export class Typewriter {
   get column() { return Array.from(this.current.lines.at(-1)).length; }
   get text() { return this.current.lines.join('\n'); }
   get full() { return this.column >= COLUMNS; }
-  type(char) {
+  ribbonAt(row, column) { return this.current.ribbons[row]?.[column] || 'o'; }
+  type(char, ribbon = 'o') {
     if (!char || /[\r\n\t\x00-\x1f\x7f]/.test(char) || this.full) return { accepted: false, locked: this.full };
     char = Array.from(char)[0];
+    const column = this.column;
+    const marks = this.current.ribbons[this.row] || '';
+    this.current.ribbons[this.row] = marks.slice(0,column).padEnd(column,'o') + ribbon;
     this.current.lines[this.row] += char;
     return { accepted: true, char, row: this.row, column: this.column - 1, bell: this.column === WARNING_COLUMN };
   }
@@ -37,10 +42,12 @@ export class Typewriter {
       const characters = Array.from(line);
       const char = characters.pop();
       this.current.lines[this.row] = characters.join('');
+      if (this.current.ribbons[this.row]) this.current.ribbons[this.row] = this.current.ribbons[this.row].slice(0,characters.length);
       return { char, row: this.row, column: characters.length };
     }
     if (this.row === 0) return null;
     this.current.lines.pop();
+    this.current.ribbons.length = Math.min(this.current.ribbons.length,this.current.lines.length);
     return { char: '\n' };
   }
   returnCarriage() {
@@ -55,7 +62,7 @@ export class Typewriter {
   newDocument() {
     const id = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const number = (this.documents.at(-1)?.number || 0) + 1;
-    this.documents.push({ id, number, created: new Date().toISOString(), lines: [''] });
+    this.documents.push({ id, number, created: new Date().toISOString(), lines: [''], ribbons: [] });
     this.documents = this.documents.slice(-MAX_PAGES);
     this.activeId = id;
     return id;

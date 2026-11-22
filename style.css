@@ -255,3 +255,58 @@
 @media print {
   #print-output { color: #171310; -webkit-text-stroke: .18px #211813; }
 }
+
+#machine-view {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.has-rig .typewriter-scene,
+.has-rig #guide,
+.has-rig #head-rail { display: none; }
+.has-rig { --page-width: min(59vw, 980px); }
+.has-rig #paper { box-shadow: 0 20px 46px #0009; }
+.has-rig .paper-feed-shadow { height: 34px; }
+#machines {
+  position: absolute;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  top: max(12px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 6;
+  padding: 3px;
+  margin: 0;
+  border: 1px solid #e6d4b02d;
+  border-radius: 6px;
+  background: #1a1511d9;
+  color: #e6d9c3;
+  cursor: default;
+}
+#machines label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  position: relative;
+  cursor: pointer;
+  min-height: 33px;
+  padding: 5px 9px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+#machines input { position:absolute; opacity:0; inset:0; width:100%; height:100%; margin:0; cursor:pointer; }
+#machines label:hover { background:#4a3b30; }
+#machines label:has(:checked) { background:#453b33; color:#fff4de; }
+#machines label:has(:focus-visible) { outline:2px solid #dbc497; outline-offset:2px; }
+.machine-chip { width:10px;height:10px;border-radius:50%;background:var(--swatch);box-shadow:inset 0 1px #ffffff55,0 0 0 1px #ffebc93c; }
+.fresh-impression { animation-duration: var(--impact-delay, .047s); }
+@media (max-width:740px) {
+  .has-rig { --page-width: 92vw; }
+  #machines { right:11px; }
+  #machines label { min-height:34px;padding:5px 7px;font-size:11px; }
+}

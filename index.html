@@ -4,24 +4,24 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080706">
-  <meta name="description" content="A blank sheet and a type guide. A tactile online typewriter with real mechanical sounds, moving paper, and dark ribbon ink.">
+  <meta name="description" content="Choose from three mechanical typewriters with moving keys, distinct recorded sounds, and dark ribbon ink.">
   <title>Paper · An online typewriter</title>
   <link rel="canonical" href="https://npclabs-19.github.io/paper-typewriter/">
   <meta property="og:title" content="Paper · An online typewriter">
-  <meta property="og:description" content="A red typewriter, a blank sheet, and the sound of real keys.">
+  <meta property="og:description" content="Three typewriters with working mechanisms and distinct recorded sounds.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://npclabs-19.github.io/paper-typewriter/">
   <meta property="og:image" content="https://npclabs-19.github.io/paper-typewriter/assets/og.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Paper · An online typewriter">
-  <meta name="twitter:description" content="A red typewriter, a blank sheet, and the sound of real keys.">
+  <meta name="twitter:description" content="Three typewriters with working mechanisms and distinct recorded sounds.">
   <meta name="twitter:image" content="https://npclabs-19.github.io/paper-typewriter/assets/og.png">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="preload" href="./assets/fonts/TT2020.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="./style.css?v=motion">
+  <link rel="stylesheet" href="./style.css?v=mechanics">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Paper","url":"https://npclabs-19.github.io/paper-typewriter/","applicationCategory":"ProductivityApplication","operatingSystem":"Any","description":"A minimal online typewriter with mechanical sound, ribbon ink, and local saving.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <script defer src="./assets/vendor/gsap.min.js"></script>
-  <script type="module" src="./app.js?v=motion"></script>
+  <script type="module" src="./app.js?v=mechanics"></script>
 </head>
 <body>
   <a class="skip-link" href="#key-input">Skip to paper</a>
@@ -33,6 +33,7 @@
       <div id="carriage"><div id="impressions"></div><span id="writing-point"></span></div>
       <div class="paper-feed-shadow"></div>
     </div>
+    <canvas id="machine-view" aria-hidden="true" hidden></canvas>
     <div class="typewriter-scene typewriter-front" aria-hidden="true"></div>
     <div id="head-rail" aria-hidden="true"></div>
     <div id="guide" aria-hidden="true">
@@ -46,6 +47,11 @@
     <p id="typing-help" class="sr-only">Press Backspace or Delete to erase the previous character. Press Enter for a line break. Press Escape for saved pages, exports, and sound controls.</p>
     <div id="readable-document" class="sr-only" role="log" aria-live="off" aria-label="Your typed document"></div>
     <p id="margin-hint" class="margin-hint" role="status"></p>
+    <fieldset id="machines" aria-label="Typewriter model">
+      <label title="Olympia SM3 · manual carriage"><input type="radio" name="machine" value="olympia" aria-label="Olympia SM3, manual carriage"><span class="machine-chip" style="--swatch:#982d29"></span><span>SM3</span></label>
+      <label title="Olivetti Lettera 22 · manual carriage"><input type="radio" name="machine" value="lettera" aria-label="Olivetti Lettera 22, manual carriage"><span class="machine-chip" style="--swatch:#638e7f"></span><span>Lettera 22</span></label>
+      <label title="IBM Selectric II · automatic return"><input type="radio" name="machine" value="selectric" aria-label="IBM Selectric II, automatic return"><span class="machine-chip" style="--swatch:#d3bb8d"></span><span>Selectric II</span></label>
+    </fieldset>
     <button id="menu-toggle" class="menu-toggle" type="button" aria-label="Open typewriter menu" aria-expanded="false" aria-controls="controls" title="Menu · Esc">
       <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 7h12M4 12h12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
     </button>
