@@ -1,7 +1,7 @@
 import { STORAGE_KEY } from '../engine.js';
 import { assess, quickRewrite } from './prose.js';
 import { availableEngines, gpuRewrite, nativeRewrite } from './model.js';
-import { localDay, deckFor, deckIndex, questionFor, includesWord, DECK_SIZE } from './daily.js';
+import { localDay, deckFor, deckIndex, questionFor, includesWord, DECK_SIZE } from './daily.js?v=pronunciation';
 import { playPronunciation, stopPronunciation } from './pronunciation.js';
 
 const $ = id => document.getElementById(id);
