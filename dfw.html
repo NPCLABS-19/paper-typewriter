@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ede5d2">
+  <meta name="description" content="A writing mode for Paper with David Foster Wallace–inspired rewrites, draft assessment, and twenty daily vocabulary words.">
+  <title>DFW · Paper</title>
+  <link rel="canonical" href="https://npclabs-19.github.io/paper-typewriter/dfw.html">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./dfw/style.css">
+  <script type="module" src="./dfw/ui.js"></script>
+</head>
+<body>
+  <a class="skip" href="#dfw-main">Skip to DFW</a>
+  <header class="masthead">
+    <div class="edition">
+      <a class="return-link" href="./"><svg aria-hidden="true" viewBox="0 0 18 18"><path d="M14 9H4m4-4L4 9l4 4"/></svg> Paper</a>
+      <nav aria-label="DFW mode">
+        <a href="#draft" id="draft-nav">Prose</a>
+        <a href="#words" id="words-nav">Daily words</a>
+      </nav>
+    </div>
+  </header>
+  <main id="dfw-main" class="edition">
+    <div class="title-band">
+      <h1>DFW</h1>
+      <p>Read your draft closely, try a David Foster Wallace–inspired rewrite, or learn twenty words a day.</p>
+    </div>
+    <section id="draft" aria-labelledby="draft-title">
+      <div class="workbench">
+        <div class="draft-column">
+          <div class="section-line"><h2 id="draft-title"><label for="draft-input">Your draft</label></h2><button type="button" class="quiet" id="use-sheet" hidden>Insert current sheet</button></div>
+          <textarea id="draft-input" spellcheck="false" autocorrect="off" autocapitalize="off" placeholder="Paste or type your prose here."></textarea>
+          <div class="draft-meta"><span id="draft-count">0 words</span><span id="draft-origin"></span></div>
+          <div class="actions">
+            <button type="button" id="quick" class="accent" disabled>Assess &amp; rewrite</button>
+            <button type="button" id="ai" class="outline" hidden>Rewrite with local AI</button>
+            <button type="button" id="stop" class="quiet" hidden>Stop</button>
+          </div>
+          <p id="engine-note" class="note">The quick pass edits for rhythm and asides. Your draft stays on this device.</p>
+        </div>
+        <div class="review-column" id="results" aria-labelledby="assessment-title">
+          <h2 id="assessment-title">Assessment</h2>
+          <div id="assessment"><p class="empty">Sentence rhythm, repeated openings, and places to qualify a thought will appear here.</p></div>
+          <div class="rewrite-section">
+            <div class="section-line"><h2 id="rewrite-label">Rewrite</h2><button type="button" id="copy" class="quiet" hidden>Copy</button><button type="button" id="save" class="quiet" hidden>Save text</button></div>
+            <p id="rewrite-empty" class="empty">Your revised prose will appear alongside the original.</p>
+            <div id="rewrite" class="prose-output" aria-labelledby="rewrite-label" hidden></div>
+            <p id="rewrite-status" class="note" role="status"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="words" aria-labelledby="words-title" hidden>
+      <div class="words-header"><div><h2 id="words-title">Today’s 20</h2><p id="day-label" class="note"></p></div><button type="button" class="accent" id="practice-start" disabled>Play the quiz</button></div>
+      <p id="words-status" class="note" role="status"></p>
+      <div id="practice" class="practice" hidden>
+        <div class="section-line"><h3 id="quiz-title" tabindex="-1">Match the meaning</h3><span id="quiz-progress" class="number"></span></div>
+        <p id="quiz-definition"></p>
+        <div id="choices" class="choices" aria-label="Choose the matching word"></div>
+        <div id="quiz-feedback" class="note" role="status" tabindex="-1"></div>
+        <form id="sentence-form" hidden>
+          <label id="sentence-label" for="sentence-input"></label>
+          <div class="sentence-row"><input id="sentence-input" type="text" maxlength="280" spellcheck="false" autocorrect="off" placeholder="Write your own sentence."><button class="outline" type="submit">Check use</button></div>
+        </form>
+        <div class="actions"><button type="button" class="accent" id="quiz-next" hidden>Next word</button><button type="button" class="quiet" id="practice-close">Back to the words</button></div>
+      </div>
+      <ol id="word-list" class="word-list"></ol>
+      <p class="source-note">Meanings and examples draw on Princeton WordNet. <a href="./assets/dfw/WORDNET-LICENSE.txt">Dictionary license</a>.</p>
+    </section>
+  </main>
+</body>
+</html>

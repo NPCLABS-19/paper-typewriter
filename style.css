@@ -363,3 +363,18 @@
   }
   #mobile-keys button { width: 100%; }
 }
+
+.menu-actions .dfw-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  color: #632b23;
+  background: #eee6da;
+  text-decoration: none;
+  font-size: 14px;
+  transition: background .18s;
+}
+.menu-actions .dfw-entry:hover { background: #e7d8ca; }

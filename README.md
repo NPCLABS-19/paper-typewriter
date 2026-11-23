@@ -9,8 +9,16 @@ Escape or the lower-right menu opens text/PNG download, print/PDF, sound and vol
 
 Documents autosave to localStorage in the current browser. Export copies for use elsewhere; clearing browser data clears local sheets. No backend, account, analytics, or tracking.
 
+## DFW mode
+
+Open **DFW mode** from Paper’s menu. It starts with your current sheet and keeps its own editable copy. Assess sentence rhythm and asides, then run a rule-based edit or, on supported browsers, a David Foster Wallace–inspired rewrite with a local language model. The WebGPU model requires a first-use download of about 0.9 GB. Drafts are processed in the browser.
+
+**Daily words** shows twenty terms with definitions and sample sentences. Match each definition to its word and practice writing your own sentences. The deck rotates at local midnight and quiz progress stays on this device.
+
 ## Develop
 `npm install`, then `npm run dev` (http://127.0.0.1:4400). The static site serves the checked-in `assets/machine.mjs` bundle. Run `npm run build` after editing the 3D model in `rig/`. WebGL renders the 3D machine, with a simpler scene when WebGL is unavailable. `npm test` runs model and browser behavior checks. See CREDITS.md for sample and font licenses.
+
+Use `npm run build:dfw` after changing the DFW model worker or its prompt. `npm run test:dfw` checks the prose and vocabulary logic plus desktop and mobile browser workflows.
 
 ## Publish
 Hosted only on the owner's GitHub account: https://npclabs-19.github.io/paper-typewriter/ . Root files are published from the main branch using GitHub Pages; no build or hosting account is needed. `.nojekyll` bypasses Jekyll.

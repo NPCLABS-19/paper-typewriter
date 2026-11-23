@@ -1,0 +1,2 @@
+assets/dfw/worker.mjs -diff linguist-generated=true
+assets/dfw/words.json -diff linguist-generated=true

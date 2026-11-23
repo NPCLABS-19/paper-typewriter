@@ -35,3 +35,9 @@ The Olympia SM3 and Olivetti Lettera 22 use separate moving keys, linkages, type
 The Olympia sound set uses ikomlino’s public-domain [typing](https://freesound.org/people/ikomlino/sounds/852748/), [space bar](https://freesound.org/people/ikomlino/sounds/852747/), and [roller winding](https://freesound.org/people/ikomlino/sounds/852749/) recordings from a vintage Olympia. The source does not identify the exact Olympia model. The Olivetti uses the recorded Lettera 22 strikes listed above. The Selectric keys, motor bed, and return are cut from secretmojo’s [IBM Selectric II recording](https://freesound.org/people/secretmojo/sounds/224012/), also CC0.
 
 The browser renderer uses Three.js. MIT license in `assets/vendor/THREE-LICENSE.txt`.
+
+## DFW mode
+
+Daily vocabulary draws on [Princeton WordNet 3.0](https://wordnet.princeton.edu/license-and-commercial-use), with original entries for the first deck. The dictionary license is in `assets/dfw/WORDNET-LICENSE.txt`.
+
+The optional in-browser rewrite can use [Chrome’s Prompt API](https://developer.chrome.com/docs/ai/prompt-api) when available or [WebLLM](https://webllm.mlc.ai/docs/) with the [Qwen2.5-1.5B-Instruct MLC model](https://huggingface.co/mlc-ai/Qwen2.5-1.5B-Instruct-q4f32_1-MLC). The model files download on request. The app passes draft text to the local browser session or worker. The WebLLM Apache 2.0 license is in `assets/dfw/WEBLLM-LICENSE.txt`.
