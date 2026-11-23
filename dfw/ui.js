@@ -1,7 +1,8 @@
 import { STORAGE_KEY } from '../engine.js';
 import { assess, quickRewrite } from './prose.js';
 import { availableEngines, gpuRewrite, nativeRewrite } from './model.js';
-import { localDay, deckFor, questionFor, includesWord, DECK_SIZE } from './daily.js';
+import { localDay, deckFor, deckIndex, questionFor, includesWord, DECK_SIZE } from './daily.js';
+import { playPronunciation, stopPronunciation } from './pronunciation.js';
 
 const $ = id => document.getElementById(id);
 function el(tag,text,className) {
@@ -150,16 +151,35 @@ function readExercise(){
   if(old && Number.isInteger(old.cursor) && Array.isArray(old.answers) && Array.isArray(old.uses))return old;
   return {cursor:0,answers:[],uses:[]};
 }
+function pronunciationButton(word,position) {
+  const button=el('button',null,'pronounce');
+  const label=`Hear ${word} in British English`;
+  button.type='button';
+  button.title=label;
+  button.setAttribute('aria-label',label);
+  button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5 5 9H2v6h3l5 4zM14 9a4 4 0 0 1 0 6m3-9a8 8 0 0 1 0 12"/></svg>';
+  button.addEventListener('click',()=>{
+    $('pronunciation-status').textContent='';
+    playPronunciation(deckIndex(wordBank.length,day),position,word,state=>{
+      button.dataset.audio=state;
+      if(state==='error')$('pronunciation-status').textContent=`Could not play “${word}”. Tap the speaker to try again.`;
+    });
+  });
+  return button;
+}
 function renderWords() {
   $('word-list').replaceChildren(...deck.map(([word,pos,definition,example],i)=>{
     const row=el('li');
-    row.append(el('span',String(i+1).padStart(2,'0'),'number'),el('h3',word),el('span',pos,'pos'),el('p',definition),el('p',example,'example'));
+    const heading=el('div',null,'word-heading');
+    heading.append(el('h3',word),pronunciationButton(word,i),el('span',pos,'pos'));
+    row.append(el('span',String(i+1).padStart(2,'0'),'number'),heading,el('p',definition),el('p',example,'example'));
     return row;
   }));
 }
 function refreshDay() {
   const next=localDay();
   if(day?.id===next.id || !wordBank)return;
+  stopPronunciation();
   day=next;
   deck=deckFor(wordBank,day);
   exercise=readExercise();
@@ -196,6 +216,7 @@ function updatePracticeLink(){
 function saveExercise(){store(progressKey(),exercise);updatePracticeLink();}
 function renderQuiz(moveFocus=false) {
   if(!training)return;
+  stopPronunciation();
   const index=exercise.cursor;
   const answered=exercise.answers[index];
   const completed=index>=deck.length;
@@ -206,6 +227,7 @@ function renderQuiz(moveFocus=false) {
   $('quiz-progress').textContent=completed?`${deck.length} / ${deck.length}`:`${index+1} / ${deck.length}`;
   $('choices').replaceChildren();
   $('quiz-feedback').textContent='';
+  $('quiz-pronounce').replaceChildren();
   $('sentence-form').hidden=true;
   $('sentence-input').value=exercise.uses[index]||'';
   $('quiz-next').hidden=!answered&&!completed;
@@ -228,6 +250,7 @@ function renderQuiz(moveFocus=false) {
     }));
     if(answered){
       $('quiz-feedback').textContent=answered===answer[0]?`Correct. ${answer[3]}`:`The word is ${answer[0]}. ${answer[3]}`;
+      $('quiz-pronounce').append(pronunciationButton(answer[0],index));
       $('sentence-label').textContent=`Try using “${answer[0]}” in a sentence.`;
       $('sentence-form').hidden=false;
     }
@@ -236,6 +259,7 @@ function renderQuiz(moveFocus=false) {
 }
 $('practice-start').addEventListener('click',()=>{training=true;renderQuiz(true);});
 $('practice-close').addEventListener('click',()=>{
+  stopPronunciation();
   training=false;
   $('practice').hidden=true;
   $('word-list').hidden=false;
@@ -262,6 +286,7 @@ $('sentence-form').addEventListener('submit',event=>{
 });
 function showView() {
   const words=location.hash==='#words';
+  if(!words)stopPronunciation();
   $('draft').hidden=words;
   $('words').hidden=!words;
   $(words?'words-nav':'draft-nav').setAttribute('aria-current','page');

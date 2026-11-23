@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#ede5d2">
+  <meta name="description" content="Find and reopen your saved typewriter drafts by date.">
+  <title>Draft gallery · Paper</title>
+  <link rel="canonical" href="https://npclabs-19.github.io/paper-typewriter/gallery.html">
+  <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./dfw/style.css">
+  <link rel="stylesheet" href="./gallery.css">
+  <script type="module" src="./gallery.js"></script>
+</head>
+<body>
+  <a class="skip" href="#gallery-main">Skip to drafts</a>
+  <header class="masthead">
+    <div class="edition">
+      <a class="return-link" href="./"><svg aria-hidden="true" viewBox="0 0 18 18"><path d="M14 9H4m4-4L4 9l4 4"/></svg> Paper</a>
+      <nav aria-label="Paper"><a href="./dfw.html">DFW mode</a></nav>
+    </div>
+  </header>
+  <main id="gallery-main" class="edition">
+    <div class="gallery-heading">
+      <h1>Draft gallery</h1>
+      <p>Drafts saved in this browser.</p>
+    </div>
+    <p id="gallery-status" class="note" role="status">Loading your drafts…</p>
+    <div id="drafts"></div>
+    <noscript><p>Enable JavaScript to open your saved drafts.</p></noscript>
+  </main>
+</body>
+</html>

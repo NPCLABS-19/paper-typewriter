@@ -18,10 +18,10 @@
   <meta name="twitter:image" content="https://npclabs-19.github.io/paper-typewriter/assets/og.png">
   <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
   <link rel="preload" href="./assets/fonts/TT2020.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="./style.css?v=dfw">
+  <link rel="stylesheet" href="./style.css?v=gallery">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Paper","url":"https://npclabs-19.github.io/paper-typewriter/","applicationCategory":"ProductivityApplication","operatingSystem":"Any","description":"A minimal online typewriter with mechanical sound, ribbon ink, and local saving.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"}}</script>
   <script defer src="./assets/vendor/gsap.min.js"></script>
-  <script type="module" src="./app.js?v=studio"></script>
+  <script type="module" src="./app.js?v=gallery"></script>
 </head>
 <body>
   <a class="skip-link" href="#key-input">Skip to paper</a>
@@ -63,6 +63,7 @@
       <form method="dialog" class="menu-header"><h2 id="menu-title">Paper</h2><button class="icon-button" aria-label="Close menu" value="close"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="m5 5 8 8M13 5l-8 8" stroke="currentColor" stroke-width="1.25"/></svg></button></form>
 
       <div class="menu-actions">
+        <a class="dfw-entry" href="./gallery.html"><span>Draft gallery</span><span class="action-note">Saved sheets</span></a>
         <a class="dfw-entry" href="./dfw.html"><span>DFW mode</span><span class="action-note">Prose &amp; daily words</span></a>
         <button id="save-text" type="button"><span>Save text</span><kbd id="save-shortcut">⌘ S</kbd></button>
         <button id="save-image" type="button"><span>Save paper as image</span><span class="action-note">PNG</span></button>
@@ -75,11 +76,11 @@
       </div>
       <div class="menu-pages"><button id="new-sheet" type="button"><span>Fresh sheet</span><span class="action-note">+</span></button><label id="sheet-label" for="sheets">Your sheets<select id="sheets" aria-label="Your saved sheets"></select></label></div>
       <p class="menu-help"><kbd>Enter</kbd> Return the carriage<br><kbd>⌫</kbd> Erase last character<br><kbd>Esc</kbd> Back to the paper<br><span id="review-help">Scroll to read earlier lines</span></p>
-      <p id="storage-status" class="storage-note">Your last 10 pages stay in this browser.</p>
+      <p id="storage-status" class="storage-note">Drafts stay saved in this browser.</p>
     </dialog>
     <dialog id="new-page-prompt" class="new-page-prompt" aria-labelledby="new-page-title" aria-describedby="new-page-description">
       <h2 id="new-page-title">Start a fresh page?</h2>
-      <p id="new-page-description">This page stays saved. Your ten most recent pages are kept in this browser.</p>
+      <p id="new-page-description">This page stays saved in your draft gallery.</p>
       <div class="prompt-actions"><button id="keep-typing" type="button" autofocus>Keep typing</button><button id="tear-page" type="button">Tear &amp; start fresh</button></div>
     </dialog>
     <p id="toast" class="toast" role="status" aria-live="polite"></p>

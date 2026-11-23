@@ -59,7 +59,7 @@
         <div class="section-line"><h3 id="quiz-title" tabindex="-1">Match the meaning</h3><span id="quiz-progress" class="number"></span></div>
         <p id="quiz-definition"></p>
         <div id="choices" class="choices" aria-label="Choose the matching word"></div>
-        <div id="quiz-feedback" class="note" role="status" tabindex="-1"></div>
+        <div class="quiz-answer"><div id="quiz-feedback" class="note" role="status" tabindex="-1"></div><span id="quiz-pronounce"></span></div>
         <form id="sentence-form" hidden>
           <label id="sentence-label" for="sentence-input"></label>
           <div class="sentence-row"><input id="sentence-input" type="text" maxlength="280" spellcheck="false" autocorrect="off" placeholder="Write your own sentence."><button class="outline" type="submit">Check use</button></div>
@@ -67,6 +67,7 @@
         <div class="actions"><button type="button" class="accent" id="quiz-next" hidden>Next word</button><button type="button" class="quiet" id="practice-close">Back to the words</button></div>
       </div>
       <ol id="word-list" class="word-list"></ol>
+      <p id="pronunciation-status" class="note pronunciation-status" role="status"></p>
       <p class="source-note">Meanings and examples draw on Princeton WordNet. <a href="./assets/dfw/WORDNET-LICENSE.txt">Dictionary license</a>.</p>
     </section>
   </main>

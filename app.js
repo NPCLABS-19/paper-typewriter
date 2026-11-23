@@ -1,6 +1,7 @@
-import { Typewriter, COLUMNS, STORAGE_KEY } from './engine.js?v=desk';
+import { Typewriter, COLUMNS } from './engine.js?v=archive';
 import { MechanicalSound } from './sound.js?v=mechanics-2';
-import { MACHINES } from './profiles.js';
+import { MACHINES, draftMachine } from './profiles.js?v=archive';
+import { loadArchive, saveArchive, saveBackup } from './archive.js';
 
 const $ = s => document.querySelector(s);
 const root = document.documentElement;
@@ -26,10 +27,16 @@ const readable = $('#readable-document');
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const touch = matchMedia('(pointer: coarse)');
 const gsap = window.gsap;
-let storageAvailable = true;
-let stored;
-try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { storageAvailable = false; }
+const { db, stored } = await loadArchive();
+let archiveDatabase = db;
 const machine = new Typewriter(stored);
+const openingURL = new URL(location.href);
+const requestedSheet = openingURL.searchParams.get('draft');
+if (requestedSheet) {
+  machine.select(requestedSheet);
+  openingURL.searchParams.delete('draft');
+  history.replaceState(null,'',openingURL);
+}
 const sound = new MechanicalSound();
 let profileId = 'olympia';
 let rig;
@@ -42,7 +49,9 @@ try {
   sound.setVolume(typeof preferences.volume === 'number' ? preferences.volume : .65);
   if (Object.hasOwn(MACHINES,preferences.machine)) profileId = preferences.machine;
 } catch {}
+if (requestedSheet && machine.activeId === requestedSheet) profileId = draftMachine(machine.current) || profileId;
 sound.select(profileId);
+if (requestedSheet) persistPreferences();
 let cw = 12, lh = 29;
 let paperHeight = 0;
 let paperLeft = 0;
@@ -73,14 +82,28 @@ function toast(message) {
 function persist(immediate = false) {
   clearTimeout(saveTimer);
   const write = () => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(machine.serialize()));
-      storageAvailable = true;
-    } catch {
-      storageAvailable = false;
-      if (!storageNoticeShown) { toast('Browser storage is unavailable. Save a copy from the menu.'); storageNoticeShown = true; }
+    const recent = machine.documents.slice(-10);
+    if (!recent.includes(machine.current)) recent.unshift(machine.current);
+    function backup() {
+      try {
+        saveBackup(machine.activeId,archiveDatabase ? recent : machine.documents);
+        return true;
+      } catch { return false; }
     }
-    $('#storage-status').textContent = storageAvailable ? 'Your last 10 pages stay in this browser.' : 'Browser storage is unavailable. Save a copy.';
+    function showStorage(available) {
+      if (!available && !storageNoticeShown) {
+        toast('Browser storage is unavailable. Save a copy from the menu.');
+        storageNoticeShown = true;
+      }
+      $('#storage-status').textContent = available ? 'Drafts stay saved in this browser.' : 'Browser storage is unavailable. Save a copy.';
+    }
+    // A synchronous snapshot covers navigation while the archive transaction finishes.
+    const backedUp = backup();
+    if (!archiveDatabase) { showStorage(backedUp); return; }
+    saveArchive(archiveDatabase,[structuredClone(machine.current)]).then(() => showStorage(true)).catch(() => {
+      archiveDatabase = undefined;
+      showStorage(backup() || backedUp);
+    });
   };
   if (immediate) write(); else saveTimer = setTimeout(write, 120);
 }
@@ -228,11 +251,13 @@ function updateReadable() {
   updateReadable.timer = setTimeout(() => { readable.textContent = machine.text; }, 200);
 }
 function refreshSheets() {
-  $('#sheets').replaceChildren(...machine.documents.map((doc, i) => {
+  const sheets=document.createDocumentFragment();
+  for (const doc of machine.documents) {
     const option = new Option(`Page ${String(doc.number).padStart(2, '0')}${doc.lines.some(l => l.length) ? ' · ' + (doc.lines.find(l => l.trim()) || '').trim().slice(0, 16) : ' · blank'}`, doc.id);
     option.selected = doc.id === machine.activeId;
-    return option;
-  }));
+    sheets.append(option);
+  }
+  $('#sheets').replaceChildren(sheets);
 }
 function renderDocument() {
   clearTimeout(autoTimer);
@@ -634,7 +659,21 @@ pagePrompt.addEventListener('cancel',event=>{event.preventDefault();pagePrompt.c
 $('#keep-typing').addEventListener('click',()=>pagePrompt.close());
 $('#tear-page').addEventListener('click',tearAndStart);
 $('#new-sheet').addEventListener('click',askNewPage);
-$('#sheets').addEventListener('change', event => {if(returning)return;persist(true);machine.select(event.target.value);renderDocument();persist(true);closeMenu();});
+$('#sheets').addEventListener('change', event => {
+  if(returning)return;
+  persist(true);
+  machine.select(event.target.value);
+  const original=draftMachine(machine.current);
+  if(original && original!==profileId){
+    profileId=original;
+    sound.select(profileId);
+    applyProfile();
+    persistPreferences();
+  }
+  renderDocument();
+  persist(true);
+  closeMenu();
+});
 window.addEventListener('resize',measure);
 window.visualViewport?.addEventListener('resize',measure);
 window.visualViewport?.addEventListener('scroll',measure);

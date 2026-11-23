@@ -16,3 +16,17 @@ export const MACHINES = {
     autoReturn: true,
   },
 };
+
+const machineIds = {o:'olympia',l:'lettera',s:'selectric'};
+
+export function draftMachine(draft) {
+  const ribbons = Array.isArray(draft.ribbons) ? draft.ribbons : [];
+  for (let row = Math.min(draft.lines.length,ribbons.length)-1; row >= 0; row--) {
+    if (typeof ribbons[row] !== 'string' || typeof draft.lines[row] !== 'string') continue;
+    const characters = Array.from(draft.lines[row]);
+    for (let column = Math.min(characters.length,ribbons[row].length)-1; column >= 0; column--) {
+      const mark = machineIds[ribbons[row][column]];
+      if (mark && characters[column].trim()) return mark;
+    }
+  }
+}

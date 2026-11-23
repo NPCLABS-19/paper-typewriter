@@ -5,10 +5,12 @@ export function localDay(date=new Date()) {
   const year=date.getFullYear(),month=date.getMonth(),day=date.getDate();
   return {index:Math.round((Date.UTC(year,month,day)-EPOCH)/DAY),id:`${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`};
 }
+export function deckIndex(wordCount,day) {
+  const total=Math.floor(wordCount/DECK_SIZE);
+  return total ? ((day.index%total)+total)%total : 0;
+}
 export function deckFor(words,day) {
-  const total=Math.floor(words.length/DECK_SIZE);
-  if(!total) return [];
-  const index=((day.index%total)+total)%total;
+  const index=deckIndex(words.length,day);
   return words.slice(index*DECK_SIZE,(index+1)*DECK_SIZE);
 }
 function shuffled(list,seed) {

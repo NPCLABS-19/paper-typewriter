@@ -25,6 +25,9 @@ assert.equal(localDay(new Date(2027,0,1,11)).index,39);
 const byDay=Array.from({length:366},(_,index)=>deckFor(bank,{index}));
 assert(byDay.every(list=>list.length===20));
 assert.equal(new Set(byDay.flat().map(([word])=>word)).size,7320);
+const clips=JSON.parse(await fs.readFile(new URL('../assets/dfw/pronunciation/timings.json',import.meta.url),'utf8'));
+assert.deepEqual(clips.map(day=>day.map(([word])=>word)),byDay.map(day=>day.map(([word])=>word)));
+assert(clips.every(day=>day.every(([,offset,duration],i)=>duration>0 && (!i || offset>=day[i-1][1]+day[i-1][2]-1))));
 const question=questionFor(byDay[0],0,today.index);
 assert.deepEqual(question,questionFor(byDay[0],0,today.index));
 assert.equal(new Set(question.choices).size,4);
@@ -48,11 +51,32 @@ async function checkAxe(page) {
   const violations=await page.evaluate(async()=> (await axe.run({runOnly:['wcag2a','wcag2aa','wcag21aa']})).violations.map(({id,nodes})=>({id,nodes:nodes.map(node=>node.target)})));
   assert.deepEqual(violations,[]);
 }
+function instrumentPlayback() {
+  window.pronunciationStarts=[];
+  const start=AudioBufferSourceNode.prototype.start;
+  AudioBufferSourceNode.prototype.start=function(...args){
+    const [when,offset,duration]=args;
+    if(args.length===3){
+      const {sampleRate}=this.buffer;
+      const samples=this.buffer.getChannelData(0).subarray(offset*sampleRate,(offset+duration)*sampleRate);
+      window.pronunciationStarts.push({offset,duration,audible:samples.some(sample=>Math.abs(sample)>.03)});
+    }
+    return start.apply(this,args);
+  };
+}
+async function checkPlayback(page,word,[,offset,duration],mobile=false) {
+  const speaker=page.getByRole('button',{name:`Hear ${word} in British English`,exact:true});
+  if(mobile) await speaker.tap(); else await speaker.click();
+  await page.waitForFunction(({offset,duration})=>
+    pronunciationStarts.some(clip=>clip.offset===offset && clip.duration===duration && clip.audible),
+  {offset:offset/1000,duration:duration/1000});
+}
 try {
   const context=await browser.newContext({viewport:{width:1365,height:950},acceptDownloads:true});
   const page=await context.newPage();
   page.on('pageerror',error=>errors.push(error.message));
   await page.clock.setFixedTime(localDate);
+  await page.addInitScript(instrumentPlayback);
   await page.addInitScript(({key,draft})=>{
     localStorage.setItem(key,JSON.stringify({activeId:'dfw-example',documents:[{id:'dfw-example',number:1,lines:draft.split('\n')}]}));
     Object.defineProperty(window,'LanguageModel',{configurable:true,value:{
@@ -73,6 +97,7 @@ try {
     }});
   },{key:STORAGE_KEY,draft});
   await page.goto(desktopURL);
+  await page.waitForSelector('#sheets option',{state:'attached'});
   await page.keyboard.press('Escape');
   await Promise.all([page.waitForURL(dfwURL),page.getByRole('link',{name:/DFW mode/}).click()]);
   assert.equal(await page.getByRole('textbox',{name:'Your draft'}).inputValue(),draft);
@@ -101,6 +126,9 @@ try {
   await page.getByRole('heading',{name:'inchoate'}).waitFor();
   assert.equal(await page.locator('#word-list li').count(),20);
   assert.equal(await page.locator('#word-list .example').count(),20);
+  assert.equal(await page.getByRole('button',{name:/^Hear .* in British English$/}).count(),20);
+  await checkPlayback(page,'inchoate',clips[0][0]);
+  await checkPlayback(page,'gnomon',clips[0][8]);
   await checkAxe(page);
   await capture(page,'desktop-words');
   await page.getByRole('button',{name:'Play the quiz'}).click();
@@ -124,6 +152,7 @@ try {
   const phone=await mobile.newPage();
   phone.on('pageerror',error=>errors.push(error.message));
   await phone.clock.setFixedTime(localDate);
+  await phone.addInitScript(instrumentPlayback);
   await phone.goto(dfwURL);
   await phone.getByRole('textbox',{name:'Your draft'}).fill(draft);
   await phone.getByRole('button',{name:'Assess & rewrite'}).tap();
@@ -133,12 +162,14 @@ try {
   await phone.evaluate(()=>document.fonts.ready);
   await capture(phone,'mobile-prose');
   await phone.getByRole('link',{name:'Daily words'}).tap();
+  await checkPlayback(phone,'liminal',clips[0][1],true);
   await phone.getByRole('button',{name:'Play the quiz'}).tap();
   await phone.getByRole('button',{name:'inchoate',exact:true}).tap();
   await phone.getByLabel('Try using “inchoate” in a sentence.').waitFor();
+  await checkPlayback(phone,'inchoate',clips[0][0],true);
   assert(await phone.evaluate(()=>document.documentElement.scrollWidth===innerWidth));
   await checkAxe(phone);
   await capture(phone,'mobile-quiz');
   assert.deepEqual(errors,[]);
-  console.log('PASS Paper menu, imported draft, rewrite, text export, AI streaming/stop with a simulated local engine, vocabulary quiz and resume, phone layout, accessibility');
+  console.log('PASS Paper menu, imported draft, rewrite, text export, AI streaming/stop with a simulated local engine, vocabulary quiz, British pronunciation playback on desktop and mobile, accessibility');
 }finally{await browser.close();}

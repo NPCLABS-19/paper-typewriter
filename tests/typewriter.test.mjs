@@ -17,7 +17,7 @@ const oldDraft=restored.text;restored.type('é','l');
 assert.equal(new Typewriter(JSON.parse(JSON.stringify(restored.serialize()))).ribbonAt(restored.row,restored.column-1),'l');
 restored.eraseLast();assert.equal(restored.text,oldDraft);
 for(let i=0;i<14;i++){restored.newDocument();restored.type(String(i%10));}
-assert.equal(restored.documents.length,10);assert.equal(restored.current.number,16);assert.equal(restored.documents[0].number,7);
+assert.equal(restored.documents.length,16);assert.equal(restored.current.number,16);assert.equal(restored.documents[0].number,1);
 const corrections = new Typewriter();
 assert.equal(corrections.eraseLast(), null);
 corrections.type('é');
